@@ -1,0 +1,40 @@
+# configs/extraction/stage1_features.yaml
+# 第一阶段特征提取配置文件
+
+model:
+num_classes: 3
+confidence_threshold: 0.1
+use_risk_assessment: false  # 第一阶段不需要风险评估
+use_gnn: false  # 第一阶段不需要GNN
+gnn_max_nodes: 50
+
+extraction:
+image_size: [416, 416]  # 输入图像大小
+max_sequences: 10  # 最大序列数
+max_samples_per_sequence: 2  # 每序列最大样本数
+skip_existing: true  # 跳过已存在的特征文件
+
+data:
+base_path: "D:/BaiduNetdiskDownload/16356714/R-LiViT"
+rgb_subdir: "R-LiViT_RGB-T/rgb"
+thermal_subdir: "R-LiViT_RGB-T/thermal"
+
+split_files:
+train: "R-LiViT_RGB-T/train.txt"
+test: "R-LiViT_RGB-T/test.txt"
+
+timestamps: ["02", "06", "10", "14", "18", "22", "26", "30", "34", "38"]
+
+checkpoint:
+stage1_path: "D:/YOLO-GNN-Fusion/checkpoints_stage1/best_model_epoch_8_loss_1.0097.pth"
+
+output:
+features_dir: "./stage1_roi_features_fixed"
+train_list: "stage2_train_list.json"
+test_list: "stage2_test_list.json"
+instructions_file: "TRAINING_INSTRUCTIONS.md"
+
+validation:
+num_samples_to_check: 5
+require_roi_features: true
+require_detections: false  # 检测不是必需的

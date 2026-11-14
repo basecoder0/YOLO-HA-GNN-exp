@@ -1,0 +1,19 @@
+# Ultralytics YOLO 🚀, AGPL-3.0 license
+# R-LiViT Thermal Dataset Configuration
+
+path: D:\BaiduNetdiskDownload\R-LiViT\R-LiViT\R-LiViT_RGB-T
+train: train_thermal.txt  # 指向刚才生成的红外路径表
+val: test_thermal.txt     # 指向刚才生成的红外路径表
+test: test_thermal.txt
+
+# 这里的 names 必须和 rgb 的完全保持一致
+nc: 8
+names:
+  0: person
+  1: car
+  2: bicycle
+  3: motorcycle
+  4: bus
+  5: truck
+  6: tramway
+  7: escooter

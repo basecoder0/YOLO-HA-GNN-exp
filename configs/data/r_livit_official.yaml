@@ -1,0 +1,18 @@
+path: D:\BaiduNetdiskDownload\R-LiViT\R-LiViT\R-LiViT_RGB-T
+train: D:\BaiduNetdiskDownload\R-LiViT\R-LiViT\R-LiViT_RGB-T\train_images.txt
+val: D:\BaiduNetdiskDownload\R-LiViT\R-LiViT\R-LiViT_RGB-T\test_images.txt
+test: D:\BaiduNetdiskDownload\R-LiViT\R-LiViT\R-LiViT_RGB-T\test_images.txt
+
+# 修改类别数量
+nc: 8
+
+# 修改类别名称列表 (必须和上面的 Python 脚本顺序完全一致！)
+names:
+  0: person
+  1: car
+  2: bicycle
+  3: motorcycle
+  4: bus
+  5: truck
+  6: tramway
+  7: escooter

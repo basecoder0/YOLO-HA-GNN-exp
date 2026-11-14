@@ -1,0 +1,7 @@
+# Ignore Directories
+venv/
+runs/
+__pycache__/
+
+# Ignore files
+*.csv

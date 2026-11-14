@@ -1,0 +1,45 @@
+# configs/train/stage2.yaml
+data:
+  # 🔥 核心修改: 指向 1280 特征目录
+  stage1_features_dir: "./stage2_gnn_dataset_1280"
+  train_list_path: "./stage2_gnn_dataset_1280/stage2_train_list.json"
+  test_list_path: "./stage2_gnn_dataset_1280/stage2_test_list.json"
+
+  batch_size: 4
+  num_workers: 0
+  shuffle: true
+
+model:
+  gnn:
+    node_feature_dim: 256
+    hidden_dim: 256
+    num_layers: 3
+    dropout: 0.1
+    attention_heads: 4
+    max_nodes: 50
+    occlusion_aware: true
+
+training:
+  epochs: 100
+  grad_clip: 1.0
+  num_classes: 8  # 8类别
+
+  loss_weights:
+    exist: 1.0
+    cls: 1.0
+    box: 5.0
+
+  checkpoint:
+    save_dir: "./runs/stage2_gnn_1280" # 输出到新目录
+    save_interval: 10
+    save_best_only: true
+    metric: "val_loss"
+
+  optimizer:
+    type: "adamw"
+    lr: 0.00005
+    weight_decay: 0.0001
+
+  scheduler:
+    type: "cosine_warmup"
+    warmup_epochs: 5

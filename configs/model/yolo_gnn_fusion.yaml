@@ -1,0 +1,91 @@
+model:
+  name: "YOLO_GNN_Fusion"
+
+  # 第一阶段：YOLO感知模块
+  stage1:
+    backbone:
+      type: "dual_resnet"
+      pretrained: true
+      shared_weights: false
+      out_channels: [256, 512, 1024]
+
+    fusion:
+      type: "adaptive"
+      fusion_channels: 256
+      use_spatial_attention: true
+      use_channel_attention: true
+
+    yolo:
+      anchors: [[10,13], [16,30], [33,23], [30,61], [62,45], [59,119], [116,90], [156,198], [373,326]]
+      num_classes: 3  # 行人、车辆、非机动车
+      confidence_threshold: 0.1  # 低阈值策略
+
+    feature_extraction:
+      roi_scales: [1.0, 1.5, 2.0]  # 多尺度RoI
+      feature_dim: 512
+
+  # 第二阶段：GNN推理模块
+  stage2:
+    gnn:
+      type: "hierarchical"
+      node_feature_dim: 128
+      hidden_dim: 256
+      num_layers: 3
+      dropout: 0.1
+
+      attention_layers:
+        appearance:
+          enabled: true
+          heads: 4
+        spatial:
+          enabled: true
+          heads: 4
+          bev_range: 50.0  # BEV空间范围
+        motion:
+          enabled: true
+          heads: 4
+
+      occlusion_aware: true
+
+    heads:
+      confidence:
+        hidden_dims: [128, 64]
+      bbox_refine:
+        hidden_dims: [128, 64]
+      risk_score:
+        hidden_dims: [128, 64]
+
+  # 第三阶段：风险评估模块
+  stage3:
+    risk_assessment:
+      base_risk_weights:
+        pedestrian: 1.0
+        bicycle: 0.8
+        motorcycle: 0.7
+        car: 0.5
+        truck: 0.6
+
+      motion_risk:
+        speed_threshold: 5.0  # m/s
+        acceleration_threshold: 2.0  # m/s²
+
+      environment_risk:
+        distance_threshold: 10.0  # 米
+        blind_zone_penalty: 0.3
+
+      conflict_pair_weights:
+        pedestrian_vehicle: 1.0
+        bicycle_vehicle: 0.9
+        pedestrian_bicycle: 0.8
+
+training:
+  stage1:
+    batch_size: 8
+    learning_rate: 0.001
+    epochs: 100
+    warmup_epochs: 5
+
+  stage2:
+    batch_size: 16
+    learning_rate: 0.0005
+    epochs: 50

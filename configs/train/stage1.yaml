@@ -1,0 +1,44 @@
+# configs/train/stage1.yaml
+
+experiment_name: "stage1_rlivit_highres_8cls" # 改个名区分
+
+data:
+  root_dir: "D:/BaiduNetdiskDownload/R-LiViT/R-LiViT"
+  train_txt: "train.txt"
+  test_txt: "test.txt"
+
+  # 🔥 核心修改 1: 拒绝压缩！使用原图宽度
+  # 原始 1280x720 -> Letterbox 会变成 1280x1280 (上下填充灰边)，图像本身不缩放
+  img_size: 1280
+
+  # 🔥 核心修改 2: 显存保护
+  # 1280分辨率非常吃显存，建议从 4 开始试，显存够再加到 8
+  batch_size: 4
+  num_workers: 4
+
+model:
+  backbone: "yolov8s" # 如果显存还有富余，建议改用 "yolov8s" (Small) 进一步提升小目标能力
+  pretrained: "weights/yolov8s.pt"
+
+  # 🔥 核心修改 3: 8 类别
+  num_classes: 8
+  names: [
+    'car',          # 0
+    'person',       # 1
+    'bicycle',      # 2
+    'motorcycle',   # 3
+    'bus',          # 4
+    'truck',        # 5
+    'tramway',      # 6
+    'escooter'      # 7
+  ]
+
+hyperparameters:
+  epochs: 100
+  lr0: 0.01
+  lrf: 0.01
+  momentum: 0.937
+  weight_decay: 0.0005
+  box: 7.5
+  cls: 0.5
+  dfl: 1.5
