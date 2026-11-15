@@ -12,35 +12,35 @@ from torch_geometric.nn import GATConv
 
 
 # ==========================================
-# 1. 定义一个带 Hook 的 GNN 包装器
+# 1. define义oneawith Hook of GNN packinstalldevice
 # ==========================================
 class VisualizableGNN(HierarchicalGNN):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.attn_weights = {}  # 存储每一层的注意力
+        self.attn_weights = {}  # existstorageeachonelayerofnoteability
 
     def forward_with_attention(self, node_features, bboxes, scores):
-        # 这是一个简化版的 forward，专门用于提取 attention
-        # 我们只处理 batch size = 1 的情况进行可视化
+        # this is a simplified version forward，special门forextract attention
+        # ouronlyprocessing batch size = 1 ofsituationsituationperformvisualization
 
-        # 1. 预处理 (Filter & Build Graph)
+        # 1. predict/preprocessing (Filter & Build Graph)
         feat, box, keep_idx = self._filter_nodes(node_features[0], bboxes[0], scores[0])
-        if feat.size(0) < 2: return None, None, None  # 节点太少，没法画图
+        if feat.size(0) < 2: return None, None, None  # nodetooleast，notmethoddraw image
 
         edge_index = self._build_graph_for_sample(feat, box)
 
-        # 2. 编码
+        # 2. encoding
         x = self.node_encoder(feat)
 
-        # 3. 提取 Appearance Attention
-        # 临时替换 GATConv 的 forward 行为
+        # 3. extract Appearance Attention
+        # temporaryreplacechange GATConv of forward linefor/as
         x_app, (edge_index_app, alpha_app) = self.appearance_attention.attention(x, edge_index,
                                                                                  return_attention_weights=True)
         self.attn_weights['appearance'] = (edge_index_app, alpha_app)
 
-        # 4. 提取 Spatial Attention
+        # 4. extract Spatial Attention
         sp_weight = self.compute_spatial_weights(box, device=x.device)
-        # Spatial Layer 有点特殊，它在 forward 里做了乘法，我们这里手动模拟一下
+        # Spatial Layer havepoint特殊，itat/in forward indopast tense marker乘method，ourheremanualsimulateonebelow
         x_spa_raw, (edge_index_spa, alpha_spa) = self.spatial_attention.attention(x, edge_index,
                                                                                   return_attention_weights=True)
         self.attn_weights['spatial'] = (edge_index_spa, alpha_spa)
@@ -49,45 +49,45 @@ class VisualizableGNN(HierarchicalGNN):
 
 
 # ==========================================
-# 2. 可视化绘图函数
+# 2. visualizationdrawimagefunction
 # ==========================================
 def draw_attention_map(img, boxes, edge_index, attn_scores, title, save_path):
     """
-    在图片上画出节点之间的连线，线的粗细/颜色深浅代表注意力权重
+    at/inimagepieceabovedrawoutnodeofspaceof连line，lineof粗fine/color深浅representnoteabilityweight
     """
     vis_img = img.copy()
     h, w = vis_img.shape[:2]
 
-    # 归一化注意力分数以便绘图
+    # normalizenoteabilityscoreby/withconvenientdrawimage
     attn_scores = attn_scores.mean(dim=1).detach().cpu().numpy()  # Average over heads
     attn_scores = (attn_scores - attn_scores.min()) / (attn_scores.max() - attn_scores.min() + 1e-6)
 
     edge_index = edge_index.cpu().numpy()
 
-    # 画框
+    # draw bounding box
     centers = []
     for box in boxes:
         # box is [x, y, w, h] (normalized) or [x1, y1, x2, y2]
-        # 假设是归一化 [cx, cy, w, h] -> 还原到像素
+        # assumeisnormalize [cx, cy, w, h] -> restoretopixel
         cx, cy, bw, bh = box
-        px, py = int(cx * 1280), int(cy * 1280)  # 假设 1280 尺寸
+        px, py = int(cx * 1280), int(cy * 1280)  # assume 1280 size
         centers.append((px, py))
 
         x1, y1 = int((cx - bw / 2) * 1280), int((cy - bh / 2) * 1280)
         x2, y2 = int((cx + bw / 2) * 1280), int((cy + bh / 2) * 1280)
         cv2.rectangle(vis_img, (x1, y1), (x2, y2), (0, 255, 0), 2)
 
-    # 画线
+    # drawline
     for i in range(edge_index.shape[1]):
         src, dst = edge_index[0, i], edge_index[1, i]
         score = attn_scores[i]
 
-        if score < 0.2: continue  # 忽略弱连接
+        if score < 0.2: continue  # ignoreweak连connect
 
         pt1 = centers[src]
         pt2 = centers[dst]
 
-        # 颜色：红色代表强关联，蓝色代表弱关联
+        # color：red represents strong correlation，蓝colorrepresentweakcorrelation
         color_val = int(255 * score)
         color = (255 - color_val, 0, color_val)  # BGR
         thickness = max(1, int(score * 3))
@@ -100,12 +100,12 @@ def draw_attention_map(img, boxes, edge_index, attn_scores, title, save_path):
 
 
 # ==========================================
-# 3. 主流程
+# 3. major流program
 # ==========================================
 def run_visualization(ckpt_path, sample_pt_path, img_path):
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
-    # 加载模型 (使用我们的 Wrapper)
+    # loadmodel (usingourof Wrapper)
     model = VisualizableGNN(node_feature_dim=256, hidden_dim=256).to(device)
     ckpt = torch.load(ckpt_path, map_location=device)
     if 'model' in ckpt:
@@ -114,39 +114,39 @@ def run_visualization(ckpt_path, sample_pt_path, img_path):
         model.load_state_dict(ckpt, strict=False)
     model.eval()
 
-    # 加载数据
+    # loaddata
     data = torch.load(sample_pt_path, map_location=device)
     feat = [data['features'].float()]
     boxes = [data['boxes'].float()]
     scores = [data['scores'][:, 0]]
 
-    # 提取注意力
+    # extractnoteability
     boxes_filtered, attn_weights, _ = model.forward_with_attention(feat, boxes, scores)
 
     if boxes_filtered is None:
-        print("❌ 节点数量不足，无法可视化")
+        print("❌ nodecountamountnot足，unable tovisualization")
         return
 
-    # 加载原图
+    # loadoriginal image
     img = cv2.imread(img_path)
-    img = cv2.resize(img, (1280, 1280))  # 确保尺寸匹配
+    img = cv2.resize(img, (1280, 1280))  # make suresizematch
 
-    # 绘制 Appearance Attention
+    # draw Appearance Attention
     edge_idx, alpha = attn_weights['appearance']
     draw_attention_map(img, boxes_filtered, edge_idx, alpha, "Appearance Attention", "vis_attn_app.jpg")
 
-    # 绘制 Spatial Attention
+    # draw Spatial Attention
     edge_idx, alpha = attn_weights['spatial']
     draw_attention_map(img, boxes_filtered, edge_idx, alpha, "Spatial Attention", "vis_attn_spa.jpg")
 
 
 if __name__ == "__main__":
-    # 填入实际路径
+    # fillactualpath
     ckpt = "runs/stage2_gnn_1280/epoch_100.pth"
-    pt_file = "stage2_gnn_dataset_1280/processed/sample_0.pt"  # 需要找一个具体的样本
+    pt_file = "stage2_gnn_dataset_1280/processed/sample_0.pt"  # needfinda specific sample
     img_file = "raw_data/images/sample_0.png"
 
     if os.path.exists(ckpt) and os.path.exists(pt_file):
         run_visualization(ckpt, pt_file, img_file)
     else:
-        print("请检查文件路径配置")
+        print("pleasecheckfilepathconfiguration")

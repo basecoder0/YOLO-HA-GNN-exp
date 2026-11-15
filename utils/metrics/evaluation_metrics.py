@@ -4,7 +4,7 @@ import numpy as np
 
 def box_iou(box1, box2):
     """
-    计算两个框集合的 IoU
+    calculation两aboxcollectcombineof IoU
     box1: [N, 4] (x1, y1, x2, y2)
     box2: [M, 4] (x1, y1, x2, y2)
     Return: [N, M]
@@ -22,7 +22,7 @@ def box_iou(box1, box2):
 
 
 def compute_ap(recall, precision):
-    """ 计算 Average Precision (AP) """
+    """ calculation Average Precision (AP) """
     mrec = np.concatenate(([0.0], recall, [1.0]))
     mpre = np.concatenate(([1.0], precision, [0.0]))
 
@@ -44,7 +44,7 @@ def compute_ap(recall, precision):
 
 def ap_per_class(tp, conf, pred_cls, target_cls, plot=False, save_dir='.', names=()):
     """
-    计算每个类别的 AP, Precision, Recall, F1
+    calculationeachacategoryof AP, Precision, Recall, F1
     """
     i = np.argsort(-conf)
     tp, conf, pred_cls = tp[i], conf[i], pred_cls[i]

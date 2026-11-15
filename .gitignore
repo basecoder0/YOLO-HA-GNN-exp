@@ -5,3 +5,9 @@ __pycache__/
 
 # Ignore files
 *.csv
+
+translate_comments_v2.py
+translate_comments_v3.py
+translate_comments.py
+translation_report_v2.json
+translation_report.json

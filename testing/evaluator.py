@@ -6,7 +6,7 @@ import sys
 from tqdm import tqdm
 from pathlib import Path
 
-# 添加项目根目录
+# addprojectrootdirectory
 sys.path.append(str(Path(__file__).parent.parent))
 
 from models.gnn.hierarchical_gnn import HierarchicalGNN
@@ -23,10 +23,10 @@ class Evaluator:
         self.niou = np.linspace(0.5, 0.95, 10)  # mAP@0.5:0.95 IoU vector
 
     def load_model(self, checkpoint_path):
-        """加载 GNN 模型"""
+        """loading GNN model"""
         model = HierarchicalGNN(node_feature_dim=256, hidden_dim=256).to(self.device)
         head_ex = torch.nn.Linear(128, 1).to(self.device)
-        head_cl = torch.nn.Linear(128, 8).to(self.device)  # 假设8类
+        head_cl = torch.nn.Linear(128, 8).to(self.device)  # assume8class
 
         ckpt = torch.load(checkpoint_path, map_location=self.device)
         if isinstance(ckpt, dict) and 'model' in ckpt:
@@ -41,7 +41,7 @@ class Evaluator:
 
     def process_batch(self, detections, labels, iouv):
         """
-        匹配预测框和真值框
+        matchpredictionboxandtruevaluebox
         Return: [Correct, Conf, Pred_Cls, Target_Cls]
         """
         correct = np.zeros((detections.shape[0], iouv.shape[0])).astype(bool)
@@ -59,20 +59,20 @@ class Evaluator:
         return correct
 
     def evaluate(self, checkpoint_path):
-        """运行完整评估"""
+        """runcompleteevaluation"""
         model, head_ex, head_cl = self.load_model(checkpoint_path)
 
-        # 加载测试列表
+        # loadtestlist
         with open(self.dataset_path, 'r') as f:
             samples = json.load(f)
 
         stats = []  # [TP, Conf, Pred_Cls, Target_Cls]
 
-        print(f"🚀 开始评估: {os.path.basename(checkpoint_path)}")
+        print(f"🚀 startevaluation: {os.path.basename(checkpoint_path)}")
         for info in tqdm(samples):
-            # 1. 加载数据 (特征 & 真值)
-            # 假设 .pt 文件包含了 'features', 'boxes', 'labels' (真值)
-            # 如果 .pt 是 Stage 1 的输出，你需要另外加载 label
+            # 1. loaddata (feature & truevalue)
+            # assume .pt filecontainspast tense marker 'features', 'boxes', 'labels' (truevalue)
+            # if .pt is Stage 1 ofoutput，youneedanotherextraload label
             pt_path = info['path']
             if not os.path.exists(pt_path): continue
 
@@ -81,32 +81,32 @@ class Evaluator:
             boxes = data['boxes'].float()  # Norm boxes [cx, cy, w, h] or [x1, y1, x2, y2]
             scores = data['scores'][:, 0]
 
-            # 假设 labels 也在 data 中，或者你需要从 info['label_path'] 加载
-            # 这里为了演示，假设 data['gt_labels'] 存在: [class, x1, y1, x2, y2]
+            # assume labels alsoat/in data in，oroneyouneedfrom info['label_path'] load
+            # heretoperformshow，assume data['gt_labels'] exist: [class, x1, y1, x2, y2]
             if 'gt_labels' not in data or len(data['gt_labels']) == 0:
                 continue
 
             labels = data['gt_labels'].to(self.device)
 
-            # 2. 模型推理
+            # 2. modelinference
             with torch.no_grad():
                 out, keep, _ = model([feat], [boxes], [scores])
                 p_ex = torch.sigmoid(head_ex(out))
-                p_cl = torch.argmax(head_cl(out), dim=1) + 1  # 假设 1-8 是类别
+                p_cl = torch.argmax(head_cl(out), dim=1) + 1  # assume 1-8 iscategory
 
-            # 3. 收集预测结果
+            # 3. collectpredictionresult
             keep_idxs = keep[0]
-            pred_boxes = boxes[keep_idxs]  # 使用原始框或回归后的框
+            pred_boxes = boxes[keep_idxs]  # usingoriginalboxorfallbackreturnafterofbox
             pred_scores = p_ex.squeeze()
             pred_cls = p_cl
 
-            # 过滤低置信度
+            # filterlowconfidence
             mask = pred_scores > self.conf_thres
             pred_boxes = pred_boxes[mask]
             pred_scores = pred_scores[mask]
             pred_cls = pred_cls[mask]
 
-            # 4. 统计匹配 (Match)
+            # 4. statisticsmatch (Match)
             n_pred = pred_boxes.shape[0]
             n_gt = labels.shape[0]
 
@@ -116,14 +116,14 @@ class Evaluator:
                                   labels[:, 0].cpu().numpy()))
                 continue
 
-            # 构建 pred 矩阵: [x1, y1, x2, y2, conf, cls]
-            # 这里的 boxes 假设已经是 x1y1x2y2 格式，如果不是需要转换
+            # build pred matrix: [x1, y1, x2, y2, conf, cls]
+            # hereof boxes assumealreadyis x1y1x2y2 format，ifnotisneedconvert
             preds = torch.cat([pred_boxes, pred_scores.unsqueeze(1), pred_cls.unsqueeze(1).float()], 1)
 
             correct = self.process_batch(preds, labels, torch.tensor(self.niou, device=self.device))
             stats.append((correct, preds[:, 4].cpu().numpy(), preds[:, 5].cpu().numpy(), labels[:, 0].cpu().numpy()))
 
-        # 5. 计算全局指标
+        # 5. calculationfullsituationmetric
         stats = [np.concatenate(x, 0) for x in zip(*stats)]
         if len(stats) and stats[0].any():
             p, r, ap, f1, ap_class = ap_per_class(*stats, save_dir='.')

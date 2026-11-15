@@ -1,4 +1,4 @@
-# utils/data_utils.py (更新Stage2Dataset)
+# utils/data_utils.py (updateStage2Dataset)
 import os
 import torch
 import json
@@ -8,23 +8,23 @@ from pathlib import Path
 
 
 class Stage2Dataset(Dataset):
-    """第二阶段训练数据集 - 适配R-LiViT结构"""
+    """secondstagetrainingdataset - adaptR-LiViTstructure"""
 
     def __init__(self,
                  dataset_path: str,
                  features_dir: str,
                  risk_labels_dir: str,
-                 split: str = 'train',  # 'train' 或 'test'
+                 split: str = 'train',  # 'train' or 'test'
                  max_samples: int = -1):
         """
-        初始化第二阶段数据集
+        initializationsecondstagedataset
 
         Args:
-            dataset_path: R-LiViT数据集路径
-            features_dir: 第一阶段特征保存目录
-            risk_labels_dir: 风险标签目录
-            split: 数据集划分
-            max_samples: 最大样本数（-1表示全部）
+            dataset_path: R-LiViTdatasetpath
+            features_dir: firststagefeaturesavedirectory
+            risk_labels_dir: risklabeldirectory
+            split: datasetsplit/divide
+            max_samples: maximumsamplecount（-1indicatefullpart）
         """
         super().__init__()
 
@@ -34,24 +34,24 @@ class Stage2Dataset(Dataset):
         self.split = split
         self.max_samples = max_samples
 
-        # 收集样本
+        # collectsample
         self.samples = self._collect_samples()
 
         if max_samples > 0 and len(self.samples) > max_samples:
             self.samples = self.samples[:max_samples]
 
-        print(f"📊 第二阶段 {split} 数据集: {len(self.samples)} 个样本")
+        print(f"📊 secondstage {split} dataset: {len(self.samples)} asample")
 
     def _collect_samples(self):
-        """收集样本，根据数据集划分"""
+        """collectsample，rootaccordingdatasetsplit/divide"""
         samples = []
 
-        # 读取数据集划分文件
+        # readdatasetsplit/dividefile
         split_file = self.dataset_path / "R-LiViT_RGB-T" / f"{self.split}.txt"
 
         if not split_file.exists():
-            print(f"⚠️ 划分文件不存在: {split_file}")
-            # 如果没有划分文件，使用所有特征文件
+            print(f"⚠️ split/dividefilenotexist: {split_file}")
+            # ifnothavesplit/dividefile，usingallfeaturefile
             feature_files = list(self.features_dir.glob("*_features.pt"))
             for feature_file in feature_files:
                 sample_id = feature_file.stem.replace("_features", "")
@@ -60,21 +60,21 @@ class Stage2Dataset(Dataset):
                     'feature_path': feature_file
                 })
         else:
-            # 读取划分文件中的序列
+            # readsplit/dividefileinofsequenceuenceuential
             with open(split_file, 'r') as f:
-                sequences = [line.strip() for line in f if line.strip()]
+                sequenceuenceuences = [line.strip() for line in f if line.strip()]
 
-            # 根据你的数据结构，我们需要映射序列到具体样本
-            # 这里假设每个序列有12个时间戳（从你的数据集分析得知）
-            for seq in sequences:
+            # rootaccordingyouofdatastructure，ourneedmappingsequenceuenceuentialtospecificsample
+            # hereassumeeachasequenceuenceuentialhave12atimestamp（fromyouofdatasetanalysisget知）
+            for sequenceuence in sequenceuenceuences:
                 for timestamp in ['02', '06', '10', '14', '18', '22', '26', '30', '34', '38']:
-                    # 构建样本ID - 需要根据你的实际命名规则调整
-                    sample_id = f"{seq}_{timestamp}"
+                    # buildsampleID - needrootaccording to your actual naming conventionthenadjustment
+                    sample_id = f"{sequenceuence}_{timestamp}"
 
-                    # 检查特征文件是否存在
+                    # checkfeaturefilewhetherexist
                     feature_path = self.features_dir / f"sample_{sample_id}_features.pt"
 
-                    # 检查风险标签是否存在
+                    # checkrisklabelwhetherexist
                     risk_path = self.risk_labels_dir / f"{sample_id}_risk.npy"
 
                     if feature_path.exists() and risk_path.exists():
@@ -82,7 +82,7 @@ class Stage2Dataset(Dataset):
                             'sample_id': sample_id,
                             'feature_path': feature_path,
                             'risk_path': risk_path,
-                            'sequence': seq,
+                            'sequenceuenceuence': sequenceuence,
                             'timestamp': timestamp
                         })
 
@@ -95,21 +95,21 @@ class Stage2Dataset(Dataset):
         sample = self.samples[idx]
 
         try:
-            # 加载特征
+            # loadfeature
             features = torch.load(sample['feature_path'], map_location='cpu')
 
-            # 加载风险标签
+            # loadrisklabel
             risk_label = np.load(sample['risk_path'])
             risk_label = torch.tensor(risk_label, dtype=torch.float32)
 
-            # 准备数据
+            # preparedata
             data = {
                 'scene_features': features['scene_features'],  # [256]
                 'sample_id': sample['sample_id'],
                 'risk_label': risk_label
             }
 
-            # 如果有节点特征和检测结果，也包含进来
+            # ifhavenodefeatureanddetectionresult，alsocontainsadvanceto
             if 'node_features' in features and features['node_features'] is not None:
                 data['node_features'] = features['node_features']
 
@@ -119,8 +119,8 @@ class Stage2Dataset(Dataset):
             return data
 
         except Exception as e:
-            print(f"❌ 加载样本 {sample['sample_id']} 失败: {e}")
-            # 返回空样本
+            print(f"❌ loadingsample {sample['sample_id']} failed: {e}")
+            # returnemptysample
             return {
                 'scene_features': torch.zeros(256),
                 'sample_id': sample['sample_id'],
@@ -128,7 +128,7 @@ class Stage2Dataset(Dataset):
             }
 
     def get_sample_info(self, idx):
-        """获取样本的详细信息"""
+        """getsampleofdetailedinformation"""
         sample = self.samples[idx]
         info_path = self.features_dir / f"sample_{sample['sample_id']}_meta.json"
 

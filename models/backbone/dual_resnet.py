@@ -6,22 +6,22 @@ from typing import List, Tuple, Dict
 
 class DualResNet(nn.Module):
     """
-    双分支ResNet骨干网络
-    分别处理可见光和红外热成像图像
+    双branchResNetskeletondrynetworknetwork
+    score/divideotherprocessingvisible light and infrared thermal imagingimage
     """
 
     def __init__(self,
                  backbone_type: str = 'resnet50',
                  pretrained: bool = False,
                  shared_weights: bool = False,
-                 out_channels: List[int] = [512, 1024, 2048]):  # 修改为实际的ResNet50通道数
+                 out_channels: List[int] = [512, 1024, 2048]):  # modifyfor/asactualofResNet50channelcount
         super().__init__()
 
         self.backbone_type = backbone_type
         self.shared_weights = shared_weights
         self.out_channels = out_channels
 
-        # 创建骨干网络
+        # createskeletondrynetworknetwork
         if shared_weights:
             self.rgb_backbone = self._create_backbone(backbone_type, pretrained)
             self.thermal_backbone = self.rgb_backbone
@@ -29,16 +29,16 @@ class DualResNet(nn.Module):
             self.rgb_backbone = self._create_backbone(backbone_type, pretrained)
             self.thermal_backbone = self._create_backbone(backbone_type, pretrained)
 
-        # 特征层名称映射 - 使用实际的ResNet50通道数
+        # featurelayername称mapping - usingactualofResNet50channelcount
         self.feature_layers = {
-            'layer1': 256,  # ResNet50 layer1 输出通道
-            'layer2': 512,  # ResNet50 layer2 输出通道
-            'layer3': 1024,  # ResNet50 layer3 输出通道
-            'layer4': 2048  # ResNet50 layer4 输出通道
+            'layer1': 256,  # ResNet50 layer1 outputchannel
+            'layer2': 512,  # ResNet50 layer2 outputchannel
+            'layer3': 1024,  # ResNet50 layer3 outputchannel
+            'layer4': 2048  # ResNet50 layer4 outputchannel
         }
 
     def _create_backbone(self, backbone_type: str, pretrained: bool) -> nn.Module:
-        """创建骨干网络"""
+        """createskeletondrynetworknetwork"""
         if backbone_type == 'resnet18':
             backbone = models.resnet18(pretrained=pretrained)
         elif backbone_type == 'resnet34':
@@ -50,21 +50,21 @@ class DualResNet(nn.Module):
         else:
             raise ValueError(f"Unsupported backbone: {backbone_type}")
 
-        # 移除最后的全连接层和平均池化层
+        # removedfinaloffull连connectlayerandaveragepooltransformlayer
         modules = list(backbone.children())[:-2]
         return nn.Sequential(*modules)
 
     def forward(self, rgb_input: torch.Tensor, thermal_input: torch.Tensor) -> Dict:
-        """前向传播 - 提取多尺度特征"""
+        """firsttowardspropagation - extractmultiple尺degreefeature"""
         #print(f"DualResNet input - RGB: {rgb_input.shape}, Thermal: {thermal_input.shape}")
 
         rgb_features = {}
         thermal_features = {}
 
-        # RGB分支特征提取
+        # RGBbranchfeatureextract
         x = rgb_input
 
-        # 提取不同层的特征
+        # extractnotsamelayeroffeature
         x = self.rgb_backbone[0](x)  # conv1
         x = self.rgb_backbone[1](x)  # bn1
         x = self.rgb_backbone[2](x)  # relu
@@ -86,7 +86,7 @@ class DualResNet(nn.Module):
         rgb_features['layer4'] = x
         #print(f"RGB layer4: {x.shape}")
 
-        # Thermal分支特征提取
+        # Thermalbranchfeatureextract
         y = thermal_input
         y = self.thermal_backbone[0](y)  # conv1
         y = self.thermal_backbone[1](y)  # bn1
@@ -115,5 +115,5 @@ class DualResNet(nn.Module):
         }
 
     def get_output_channels(self) -> List[int]:
-        """获取输出通道数"""
+        """getoutputchannelcount"""
         return list(self.feature_layers.values())

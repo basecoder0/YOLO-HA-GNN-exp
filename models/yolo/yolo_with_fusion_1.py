@@ -7,48 +7,48 @@ import copy
 
 class YOLOWithFusion(nn.Module):
     """
-    [最终形态] 双流 YOLOv8 融合模型
-    架构：Dual Backbone -> DPAFM Fusion -> Shared Neck (FPN+PAN) -> Detect Head
+    [finalshapestate] dual stream YOLOv8 fusionmodel
+    frameworkconstruct：Dual Backbone -> DPAFM Fusion -> Shared Neck (FPN+PAN) -> Detect Head
     """
 
     def __init__(self, model_path='weights/yolov8n.pt', num_classes=8):
         super().__init__()
         print(f"Loading base model from {model_path} for architecture reconstruction...")
         base_model = YOLO(model_path)
-        m = base_model.model.model  # 获取内部 Sequential 模型
+        m = base_model.model.model  # getinsidepart Sequential model
 
-        # --- 1. 双流骨干 (Layers 0-9) ---
-        # YOLOv8n Backbone 包含层 0-9 (0:Conv, ..., 4:P3, 6:P4, 9:SPPF-P5)
+        # --- 1. dual streamskeletondry (Layers 0-9) ---
+        # YOLOv8n Backbone containslayer 0-9 (0:Conv, ..., 4:P3, 6:P4, 9:SPPF-P5)
         self.rgb_backbone = nn.ModuleList(copy.deepcopy(m[:10]))
         self.thermal_backbone = nn.ModuleList(copy.deepcopy(m[:10]))
 
-        # --- 2. 融合模块 (P3, P4, P5) ---
-        # 对应 backbone 的输出通道: P3=64, P4=128, P5=256
+        # --- 2. fusionmodule (P3, P4, P5) ---
+        # corresponding backbone ofoutputchannel: P3=64, P4=128, P5=256
         self.fusion_p3 = DPAFM(64)
         self.fusion_p4 = DPAFM(128)
         self.fusion_p5 = DPAFM(256)
 
-        # --- 3. 颈部网络 (Layers 10-21) ---
-        # 我们直接复用预训练的 Neck 层参数，但需要手动管理数据流
+        # --- 3. 颈partnetworknetwork (Layers 10-21) ---
+        # ourdirectlycomplexusepredict/pretrainingof Neck layerparameter，butneedmanualmanagemanagedata流
         self.neck_layers = nn.ModuleList(copy.deepcopy(m[10:22]))
 
-        # --- 4. 检测头 (Layer 22) ---
+        # --- 4. detectionhead (Layer 22) ---
         self.head = copy.deepcopy(m[22])
 
-        # 重置检测头的类别数
+        # resetdetectionheadofcategorycount
         if self.head.nc != num_classes:
             self._reset_head(num_classes)
 
     def _reset_head(self, num_classes):
         """
-        重置检测头的类别数
-        修复了 'Conv' object has no attribute 'in_channels' 错误
+        resetdetectionheadofcategorycount
+        fixpast tense marker 'Conv' object has no attribute 'in_channels' error
         """
         self.head.nc = num_classes
-        # YOLOv8输出通道数计算: 类别数 + 回归框坐标数(4 * reg_max)
+        # YOLOv8outputchannelcountcalculation: categorycount + fallbackreturnboxcoordinatecount(4 * reg_max)
         self.head.no = num_classes + self.head.reg_max * 4
 
-        # 遍历 cv3 (分类分支) 的每一层 (P3, P4, P5)
+        # traverse cv3 (score/divideclassbranch) ofeachonelayer (P3, P4, P5)
         for m in self.head.cv3:
             old_conv = m[-1]
             if isinstance(old_conv, nn.Conv2d):
@@ -66,19 +66,19 @@ class YOLOWithFusion(nn.Module):
                     torch.nn.init.constant_(new_conv.bias, -math.log((1 - 0.01) / 0.01))
                 m[-1] = new_conv
 
-        # 🔥 关键修复：安全地更新 stride 属性
+        # 🔥 criticalfix：safety/full地update stride attributeproperty
         if hasattr(self.head, 'stride'):
             m = self.head
             stride_val = torch.tensor([8., 16., 32.])
 
-            # 如果它已经存在，先删除这个 Python 属性，防止 register_buffer 报错
+            # ifitalreadyexist，firstdeletethisa Python attributeproperty，prevent register_buffer error
             del m.stride
 
-            # 再重新注册为 Buffer (确保它能随模型移动到 GPU)
+            # thenweightnewnotevolumefor/as Buffer (make sureitability/canfollowmodel移motionto GPU)
             m.register_buffer('stride', stride_val)
 
     def forward_backbone(self, backbone, x):
-        """执行骨干网络并提取 P3, P4, P5"""
+        """executeskeletondrynetworknetworkandextract P3, P4, P5"""
         y = x
         p3, p4, p5 = None, None, None
         for i, layer in enumerate(backbone):
@@ -92,7 +92,7 @@ class YOLOWithFusion(nn.Module):
         return p3, p4, p5
 
     def forward(self, x):
-        # 1. 解析输入
+        # 1. parseinput
         if isinstance(x, dict):
             rgb = x['rgb']
             thermal = x['thermal']
@@ -100,27 +100,27 @@ class YOLOWithFusion(nn.Module):
             rgb = x
             thermal = x
 
-            # 2. Backbone 前向
+            # 2. Backbone firsttowards
         rgb_p3, rgb_p4, rgb_p5 = self.forward_backbone(self.rgb_backbone, rgb)
         th_p3, th_p4, th_p5 = self.forward_backbone(self.thermal_backbone, thermal)
 
-        # 3. 融合
+        # 3. fusion
         f_p3 = self.fusion_p3(rgb_p3, th_p3)
         f_p4 = self.fusion_p4(rgb_p4, th_p4)
         f_p5 = self.fusion_p5(rgb_p5, th_p5)
 
-        # 4. Neck 前向 (标准 YOLOv8n 逻辑)
+        # 4. Neck firsttowards (standard YOLOv8n logic)
         # -----------------------------------------------------------
-        # ⚠️ 这里的索引基于 standard yolov8n.yaml，如果你的版本不同，索引可能偏移
-        # 但我们将在最后一步通过“尺寸排序”来通过容错
+        # ⚠️ hereofindexbasefor standard yolov8n.yaml，ifyouofversionnotsame，indexmayoffset
+        # but we will in the final step through“sizearrangesequence”tothroughcontainererror
         # -----------------------------------------------------------
 
         # Layer 10: Upsample
         x = self.neck_layers[0](f_p5)
-        # Layer 11: Concat (P5_up + P4) -> 结果应为 40x40
-        # 如果 f_p4 和 x 尺寸对不上，这里就会直接报错，这也是一种检查
+        # Layer 11: Concat (P5_up + P4) -> resultshouldfor/as 40x40
+        # if f_p4 and x sizepairnotabove，here就willdirectlyerror，thisalsoisonetypecheck
         if x.shape[2:] != f_p4.shape[2:]:
-            # 容错：强制对齐尺寸 (万一 f_p4 也是错的)
+            # containererror：strongcontrolpair齐size (万one f_p4 alsoiserrorof)
             x = torch.nn.functional.interpolate(x, size=f_p4.shape[2:], mode='nearest')
         x = torch.cat([x, f_p4], dim=1)
 
@@ -129,12 +129,12 @@ class YOLOWithFusion(nn.Module):
 
         # Layer 13: Upsample
         x = self.neck_layers[3](out_1)
-        # Layer 14: Concat (P4_up + P3) -> 结果应为 80x80
+        # Layer 14: Concat (P4_up + P3) -> resultshouldfor/as 80x80
         if x.shape[2:] != f_p3.shape[2:]:
             x = torch.nn.functional.interpolate(x, size=f_p3.shape[2:], mode='nearest')
         x = torch.cat([x, f_p3], dim=1)
 
-        # Layer 15: C2f (P3_out) --> 这是分辨率最高的特征 (80x80)
+        # Layer 15: C2f (P3_out) --> this is the highest resolutionfeature (80x80)
         out_2 = self.neck_layers[5](x)
 
         # Layer 16: Conv (Downsample)
@@ -142,7 +142,7 @@ class YOLOWithFusion(nn.Module):
         # Layer 17: Concat
         x = torch.cat([x, out_1], dim=1)
 
-        # Layer 18: C2f (P4_out) --> 这是中等分辨率特征 (40x40)
+        # Layer 18: C2f (P4_out) --> thisisinwaitresolutionfeature (40x40)
         out_3 = self.neck_layers[8](x)
 
         # Layer 19: Conv (Downsample)
@@ -150,27 +150,27 @@ class YOLOWithFusion(nn.Module):
         # Layer 20: Concat
         x = torch.cat([x, f_p5], dim=1)
 
-        # Layer 21: C2f (P5_out) --> 这是低分辨率特征 (20x20)
+        # Layer 21: C2f (P5_out) --> thisislowresolutionfeature (20x20)
         out_4 = self.neck_layers[11](x)
 
         # -----------------------------------------------------------
-        # 🔥🔥🔥 终极修复：不再信任变量名，只信任尺寸 🔥🔥🔥
+        # 🔥🔥🔥 终extremefix：notthen信任changeamountname，only信任size 🔥🔥🔥
         # -----------------------------------------------------------
         outputs = [out_2, out_3, out_4]
 
-        # 打印调试信息 (只在第一轮打印，确认尺寸)
+        # printdebuginformation (onlyat/infirstwheelprint，confirmsize)
         if not hasattr(self, '_debug_printed'):
             print(f"\n🛑 [DEBUG] Head Inputs Shapes (Before Sort):")
             for i, o in enumerate(outputs):
                 print(f"   Input {i}: {o.shape} (H={o.shape[2]})")
             self._debug_printed = True
 
-        # 强制按 H (高度) 降序排列 -> [80x80, 40x40, 20x20]
-        # 对应 Stride -> [8, 16, 32]
+        # strongcontrolper H (highdegree) reducesequencearrangelist -> [80x80, 40x40, 20x20]
+        # corresponding Stride -> [8, 16, 32]
         outputs.sort(key=lambda x: x.shape[2], reverse=True)
 
-        # 再次确认
+        # thenminorconfirm
         if outputs[0].shape[2] < outputs[-1].shape[2]:
-            raise RuntimeError("❌ 排序失败！Head 输入顺序依然是错误的！")
+            raise RuntimeError("❌ arrangesequencefailed！Head input顺sequencestilliserrorof！")
 
         return self.head(outputs)

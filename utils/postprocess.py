@@ -6,7 +6,7 @@ import math
 
 def xywh2xyxy(x):
     """
-    将 bbox 从 [x_center, y_center, w, h] 转换为 [x1, y1, x2, y2]
+    will bbox from [x_center, y_center, w, h] convertfor/as [x1, y1, x2, y2]
     """
     y = x.clone() if isinstance(x, torch.Tensor) else np.copy(x)
     y[..., 0] = x[..., 0] - x[..., 2] / 2  # top left x
@@ -18,7 +18,7 @@ def xywh2xyxy(x):
 
 def box_iou(box1, box2, eps=1e-7):
     """
-    计算两个 bbox 集合的 IoU
+    calculation两a bbox collectcombineof IoU
     """
     (a1, a2), (b1, b2) = box1.unsqueeze(1).chunk(2, 2), box2.unsqueeze(0).chunk(2, 2)
     inter = (torch.min(a2, b2) - torch.max(a1, b1)).clamp(0).prod(2)
@@ -27,7 +27,7 @@ def box_iou(box1, box2, eps=1e-7):
 
 def scale_boxes(img1_shape, boxes, img0_shape, ratio_pad=None):
     """
-    将预测框从 img1_shape (模型输入尺寸) 缩放回 img0_shape (原图尺寸)
+    willpredictionboxfrom img1_shape (modelinputsize) shrinkscalefallback img0_shape (original imagesize)
     """
     if ratio_pad is None:  # calculate from img0_shape
         gain = min(img1_shape[0] / img0_shape[0], img1_shape[1] / img0_shape[1])  # gain  = old / new
@@ -45,7 +45,7 @@ def scale_boxes(img1_shape, boxes, img0_shape, ratio_pad=None):
 
 def clip_boxes(boxes, shape):
     """
-    裁剪边界框，使其不超过图像边界
+    cutscissorboundarybox，makeitsnotexceedimageboundary
     """
     if isinstance(boxes, torch.Tensor):  # faster individually
         boxes[..., 0].clamp_(0, shape[1])  # x1
@@ -69,14 +69,14 @@ def non_max_suppression(
         nc=0,  # number of classes (optional)
 ):
     """
-    标准的非极大值抑制 (NMS) 实现
+    standard non-maximum suppression (NMS) implement
     prediction: [batch, num_anchors, 4+num_classes]
     """
     # Checks
     assert 0 <= conf_thres <= 1, f'Invalid Confidence threshold {conf_thres}, valid values are between 0.0 and 1.0'
     assert 0 <= iou_thres <= 1, f'Invalid IoU threshold {iou_thres}, valid values are between 0.0 and 1.0'
 
-    # 兼容性处理：如果是 list (YOLOv8 可能返回 list of tensors)，取第一个
+    # compatiblepropertyprocessing：ifis list (YOLOv8 mayreturn list of tensors)，getfirsta
     if isinstance(prediction, (list, tuple)):
         prediction = prediction[0]  # select only inference output
 

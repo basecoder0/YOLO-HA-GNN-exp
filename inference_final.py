@@ -8,7 +8,7 @@ import pandas as pd
 import torchvision
 from tqdm import tqdm
 
-# 自动定位项目根目录
+# Auto-locate project root directory
 current_file_path = os.path.abspath(__file__)
 project_root = os.path.dirname(current_file_path)
 sys.path.append(project_root)
@@ -16,51 +16,51 @@ sys.path.append(project_root)
 from models.gnn.hierarchical_gnn import HierarchicalGNN
 from utils.device_utils import setup_device
 
-# 🔥 导入 LiDAR 工具
+# 🔥 Import LiDAR tools
 try:
     from utils.lidar_utils import LidarProcessor
 except ImportError:
-    print("❌ 错误: 找不到 utils.lidar_utils，请确保该文件存在！")
+    print("❌ Error: Could not find utils.lidar_utils, please ensure this file exists!")
     sys.exit(1)
 
-# ================= 🔧 核心阈值配置区 (在这里手动修改) =================
+# ================= 🔧 Core threshold configuration area (modify manually here) =================
 
-# 1. 检测置信度阈值 (GNN Confidence Threshold)
-# 作用: 只有置信度大于此值的物体才会被画出来并计算风险。
-# 调低 (如 0.2): 检出更多物体，防止漏检，但可能增加误检。
-# 调高 (如 0.6): 只保留非常确定的物体，画面更干净，但可能漏检。
+# 1. Detection confidence threshold (GNN Confidence Threshold)
+# Function: Only objects with confidence greater than this value will be drawn and risk calculated.
+# Lower (e.g., 0.2): Detect more objects, prevent missed detections, but may increase false detections.
+# Higher (e.g., 0.6): Keep only very certain objects, cleaner image, but may miss detections.
 CONF_THRES = 0.40
 
-# 2. 风险等级阈值 (Risk Level Thresholds)
-# 作用: 决定框的颜色 (红/橙/绿)。
-# 逻辑: 风险值 > HIGH -> 红色 (危险)
-#       风险值 > MID  -> 橙色 (警告)
-#       其他          -> 绿色 (安全)
-RISK_THRES_HIGH = 0.70  # 高风险阈值
-RISK_THRES_MID = 0.40  # 中风险阈值
+# 2. Risk level thresholds (Risk Level Thresholds)
+# Function: Determine the color of the box (red/orange/green).
+# Logic: Risk value > HIGH -> Red (dangerous)
+#       Risk value > MID  -> Orange (warning)
+#       Others          -> Green (safe)
+RISK_THRES_HIGH = 0.70  # High risk threshold
+RISK_THRES_MID = 0.40  # Mid risk threshold
 
-# 3. NMS 去重阈值 (IoU Threshold)
-# 作用: 如果两个框重叠度(IoU)超过此值，只保留分高的那个。
-# 通常保持 0.3 或 0.45 即可，不需要经常改。
+# 3. NMS deduplication threshold (IoU Threshold)
+# Function: If two boxes overlap (IoU) exceeds this value, keep only the one with higher score.
+# Usually keep 0.3 or 0.45, no need to change frequently.
 NMS_IOU_THRES = 0.30
 
-# ================= 📂 路径配置区 =================
+# ================= 📂 Path configuration area =================
 DATASET_DIR = "stage2_gnn_dataset_GAP_1280"
 CHECKPOINT = r"D:\YOLO-GNN-Fusion\runs\stage2_gnn_GAP_1280\epoch_50.pth"
 OUTPUT_DIR = os.path.join(project_root, "comparison_vis", "risk_assessment_final")
 
 ROOT_DATA_DIR = r"D:\BaiduNetdiskDownload\R-LiViT\R-LiViT"
-MAPPING_FILE = os.path.join(ROOT_DATA_DIR, "rgb_to_lidar_sequence_mapping.csv")
+MAPPING_FILE = os.path.join(ROOT_DATA_DIR, "rgb_to_lidar_sequenceuenceuence_mapping.csv")
 CALIB_FILE = os.path.join(ROOT_DATA_DIR, "calibration_params.json")
 
-# 类别映射
+# Class mapping
 CLASS_MAP = {
     0: 'Car', 1: 'Person', 2: 'Bicycle', 3: 'Motorcycle',
     4: 'Bus', 5: 'Truck', 6: 'Tramway', 7: 'Escooter'
 }
 
 
-# ================= 🧠 风险计算器 (TrafficRiskCalculator) =================
+# ================= 🧠 Risk calculator (TrafficRiskCalculator) =================
 class TrafficRiskCalculator:
     def __init__(self):
         self.idx2name = {
@@ -86,11 +86,11 @@ class TrafficRiskCalculator:
         cls_name = self.idx2name.get(int(cls_id), 'car').lower()
         p = self.params.get(cls_name, self.default_param)
 
-        # 1. 基础风险
+        # 1. Base risk
         r_base = p['w'] * conf
-        # 2. 运动风险
+        # 2. Motion risk
         r_motion = 1.0 + p['alpha'] * abs(speed)
-        # 3. 距离风险
+        # 3. Distance risk
         if depth is None or np.isnan(depth) or depth <= 0: depth = 999.0
         dist_diff = p['d_safe'] - depth
         r_prox = self.sigmoid(p['beta'] * dist_diff)
@@ -99,7 +99,7 @@ class TrafficRiskCalculator:
         return min(r_final, 1.0)
 
 
-# ================= 🛠️ 工具函数 =================
+# ================= 🛠️ Utility functions =================
 def xywh2xyxy(x):
     y = x.clone() if isinstance(x, torch.Tensor) else torch.tensor(x)
     y[..., 0] = x[..., 0] - x[..., 2] / 2
@@ -125,7 +125,7 @@ def scale_coords(img1_shape, coords, img0_shape):
 def draw_risk_box(img, box, cls_id, score, risk):
     x1, y1, x2, y2 = map(int, box)
 
-    # 🔥 使用配置的风险阈值
+    # 🔥 Use configured risk threshold
     if risk > RISK_THRES_HIGH:
         color = (0, 0, 255)  # Red (High Risk)
         text_color = (255, 255, 255)
@@ -136,14 +136,14 @@ def draw_risk_box(img, box, cls_id, score, risk):
         color = (0, 255, 0)  # Green (Safe)
         text_color = (0, 0, 0)
 
-    # 画框
+    # Draw box
     cv2.rectangle(img, (x1, y1), (x2, y2), color, 2)
 
-    # 标签内容
+    # Label content
     cls_name = CLASS_MAP.get(cls_id, 'Unk')
     label = f"{cls_name}: {score:.2f} R: {risk:.2f}"
 
-    # 标签背景
+    # Label background
     font_scale = 0.55
     thickness = 1
     (tw, th), baseline = cv2.getTextSize(label, cv2.FONT_HERSHEY_SIMPLEX, font_scale, thickness)
@@ -159,34 +159,34 @@ def draw_risk_box(img, box, cls_id, score, risk):
                 cv2.FONT_HERSHEY_SIMPLEX, font_scale, text_color, thickness, cv2.LINE_AA)
 
 
-# ================= 🚀 主程序 =================
+# ================= 🚀 Main program =================
 def main():
     device = setup_device()
-    print(f"🚀 启动风险评估可视化...")
-    print(f"   - 检测阈值 (Conf): {CONF_THRES}")
-    print(f"   - 高风险阈值 (Red): {RISK_THRES_HIGH}")
-    print(f"   - 中风险阈值 (Orange): {RISK_THRES_MID}")
+    print(f"🚀 Starting risk assessment visualization...")
+    print(f"   - Detection threshold (Conf): {CONF_THRES}")
+    print(f"   - High risk threshold (Red): {RISK_THRES_HIGH}")
+    print(f"   - Mid risk threshold (Orange): {RISK_THRES_MID}")
 
     os.makedirs(OUTPUT_DIR, exist_ok=True)
 
-    # 1. 映射文件
+    # 1. Mapping file
     if not os.path.exists(MAPPING_FILE):
-        print(f"❌ 找不到: {MAPPING_FILE}")
+        print(f"❌ Not found: {MAPPING_FILE}")
         return
     df_map = pd.read_csv(MAPPING_FILE, dtype=str)
-    rgb2lidar = {row['rgbt_seq_id'].strip().zfill(3): row['lidar_seq_id'].strip().zfill(4) for _, row in
+    rgb2lidar = {row['rgbt_sequenceuence_id'].strip().zfill(3): row['lidar_sequenceuence_id'].strip().zfill(4) for _, row in
                  df_map.iterrows()}
 
-    # 2. 初始化
+    # 2. Initialize
     risk_calc = TrafficRiskCalculator()
     try:
         lidar_proc = LidarProcessor(CALIB_FILE)
-        print("✅ LiDAR 模块就绪")
+        print("✅ LiDAR module ready")
     except Exception as e:
-        print(f"❌ LiDAR 初始化失败: {e}")
+        print(f"❌ LiDAR initialization failed: {e}")
         return
 
-    # 3. 模型加载
+    # 3. Model loading
     list_path = os.path.join(project_root, DATASET_DIR, "stage2_test_list.json")
     with open(list_path, 'r') as f:
         samples = json.load(f)
@@ -206,7 +206,7 @@ def main():
     head_ex.eval();
     head_cl.eval()
 
-    print(f"🚀 开始处理 {len(samples)} 张图片...")
+    print(f"🚀 Starting to process {len(samples)} images...")
 
     for info in tqdm(samples, desc="Processing"):
         try:
@@ -214,16 +214,16 @@ def main():
             if not os.path.isabs(pt_path): pt_path = os.path.join(project_root, pt_path)
 
             parts = info['id'].split('_')
-            rgb_seq = parts[0]
+            rgb_sequenceuence = parts[0]
             frame_id = parts[1]
 
-            if rgb_seq not in rgb2lidar: continue
-            lidar_seq = rgb2lidar[rgb_seq]
+            if rgb_sequenceuence not in rgb2lidar: continue
+            lidar_sequenceuence = rgb2lidar[rgb_sequenceuence]
 
-            img_path = os.path.join(ROOT_DATA_DIR, 'R-LiViT_RGB-T', 'rgb', rgb_seq, f"{frame_id}.png")
+            img_path = os.path.join(ROOT_DATA_DIR, 'R-LiViT_RGB-T', 'rgb', rgb_sequenceuence, f"{frame_id}.png")
             try:
                 l_idx = int(frame_id)
-                lidar_path = os.path.join(ROOT_DATA_DIR, 'R-LiViT_LiDAR', 'point_clouds', lidar_seq, f"{l_idx:06d}.bin")
+                lidar_path = os.path.join(ROOT_DATA_DIR, 'R-LiViT_LiDAR', 'point_clouds', lidar_sequenceuence, f"{l_idx:06d}.bin")
             except:
                 continue
 
@@ -233,7 +233,7 @@ def main():
             h0, w0 = img0.shape[:2]
             points_3d = lidar_proc.load_bin_file(lidar_path)
 
-            # GNN 推理
+            # GNN inference
             data = torch.load(pt_path, map_location=device)
             feat = torch.nn.functional.normalize(torch.nan_to_num(data['features'].float(), 0.0).clamp(-100, 100), p=2,
                                                  dim=1)
@@ -254,7 +254,7 @@ def main():
                 boxes_t, scores_t, cls_t = [], [], []
 
                 for k_i, idx in enumerate(keep_idxs):
-                    # 🔥 使用配置的检测阈值
+                    # 🔥 Use configured detection threshold
                     if p_ex[k_i] > CONF_THRES:
                         raw_idx = int(idx)
                         boxes_t.append(orig_boxes_all[raw_idx])
@@ -266,7 +266,7 @@ def main():
                     st = torch.stack(scores_t)
                     ct = torch.stack(cls_t)
 
-                    # 🔥 使用配置的 NMS 阈值
+                    # 🔥 Use configured NMS threshold
                     c_offset = ct.float() * 4096
                     keep_nms = torchvision.ops.nms(bt + c_offset.unsqueeze(1), st, NMS_IOU_THRES)
 
@@ -277,23 +277,23 @@ def main():
 
                         if final_cls not in CLASS_MAP: continue
 
-                        # 1. 物理测距
+                        # 1. Physical distance measurement
                         bbox_list = final_box.cpu().numpy().tolist()
                         depth, speed, _ = lidar_proc.get_object_depth_and_speed(points_3d, bbox_list)
 
-                        # 2. 风险计算
+                        # 2. Risk calculation
                         risk = risk_calc.calculate(final_cls, final_score, depth, speed)
 
-                        # 3. 绘图
+                        # 3. Drawing
                         draw_risk_box(img0, final_box, final_cls, final_score, risk)
 
-            save_name = f"{rgb_seq}_{frame_id}_risk.jpg"
+            save_name = f"{rgb_sequenceuence}_{frame_id}_risk.jpg"
             cv2.imwrite(os.path.join(OUTPUT_DIR, save_name), img0)
 
         except Exception as e:
             continue
 
-    print(f"\n✅ 风险图生成完毕: {OUTPUT_DIR}")
+    print(f"\n✅ Risk visualization complete: {OUTPUT_DIR}")
 
 
 if __name__ == "__main__":

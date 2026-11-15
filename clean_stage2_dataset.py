@@ -6,7 +6,7 @@ from pathlib import Path
 from tqdm import tqdm
 import shutil
 
-# 🔥 指向 1280 数据集
+# 🔥 pointing to 1280 dataset
 DEFAULT_DIR = "./stage2_gnn_dataset_1280"
 
 def check_logical_health(data, sample_id):
@@ -16,14 +16,14 @@ def check_logical_health(data, sample_id):
     dists = torch.cdist(centers, centers)
     dists.fill_diagonal_(1.0)
     if (dists < 1e-5).any():
-        print(f"❌ {sample_id}: 发现完全重叠节点")
+        print(f"❌ {sample_id}: foundcompletely overlapping nodes")
         return False
     w, h = boxes[:, 2], boxes[:, 3]
     if (ar := w / (h + 1e-6)).max() > 20 or ar.min() < 1 / 20:
-        print(f"❌ {sample_id}: 极端长宽比")
+        print(f"❌ {sample_id}: extreme aspect ratio")
         return False
     if data['features'].abs().mean() > 5.0:
-        print(f"❌ {sample_id}: 特征数值异常")
+        print(f"❌ {sample_id}: feature value anomaly")
         return False
     return True
 
@@ -35,7 +35,7 @@ def clean_dataset(data_dir=DEFAULT_DIR):
     trash_dir.mkdir(exist_ok=True)
 
     if not train_path.exists():
-        print(f"❌ 未找到索引文件: {train_path}")
+        print(f"❌ index file not found: {train_path}")
         return
 
     with open(train_path, 'r') as f: train_list = json.load(f)
@@ -45,7 +45,7 @@ def clean_dataset(data_dir=DEFAULT_DIR):
     valid_train, valid_test = [], []
     removed = 0
 
-    print(f"🔍 开始清洗 {data_dir} ({len(all_samples)} 文件)...")
+    print(f"🔍 start cleaning {data_dir} ({len(all_samples)} file)...")
 
     for info in tqdm(all_samples):
         pt_path = info['path']
@@ -69,7 +69,7 @@ def clean_dataset(data_dir=DEFAULT_DIR):
 
     with open(train_path, 'w') as f: json.dump(valid_train, f, indent=2)
     with open(test_path, 'w') as f: json.dump(valid_test, f, indent=2)
-    print(f"✅ 清洗完成! 移除: {removed}")
+    print(f"✅ cleaning completed! removed: {removed}")
 
 if __name__ == "__main__":
     clean_dataset()

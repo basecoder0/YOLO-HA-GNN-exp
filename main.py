@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-演示脚本
-展示完整的三阶段流水线效果
+performshowscript
+show the complete three-stage pipeline effect
 """
 
 import os
@@ -13,7 +13,7 @@ import cv2
 import numpy as np
 from PIL import Image
 
-# 添加项目根目录到路径
+# addprojectrootdirectorytopath
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from models import YOLOGNNFusion
@@ -22,7 +22,7 @@ from data.transforms import ValTransform
 
 
 def parse_args():
-    """解析命令行参数"""
+    """parsecommandlineparameter"""
     parser = argparse.ArgumentParser(description='YOLO-GNN-Fusion Demo')
 
     parser.add_argument('--config', type=str, required=True,
@@ -47,18 +47,18 @@ def parse_args():
 
 
 def load_model(config_path: str, checkpoint_path: str, device: str):
-    """加载模型"""
-    # 加载配置
+    """loadingmodel"""
+    # loadconfiguration
     with open(config_path, 'r') as f:
         config = yaml.safe_load(f)
 
-    # 创建模型
+    # createmodel
     model = YOLOGNNFusion(
         num_classes=config['model']['stage1']['yolo']['num_classes'],
         use_risk_assessment=True
     ).to(device)
 
-    # 加载权重
+    # loadweight
     checkpoint = torch.load(checkpoint_path, map_location=device)
     model.load_state_dict(checkpoint['model_state_dict'])
 
@@ -69,22 +69,22 @@ def load_model(config_path: str, checkpoint_path: str, device: str):
 
 
 def preprocess_images(rgb_path: str, thermal_path: str, input_size: tuple):
-    """预处理图像"""
+    """predict/preprocessingimage"""
     transform = ValTransform(input_size=input_size)
 
-    # 加载RGB图像
+    # loadRGBimage
     rgb_img = cv2.imread(rgb_path)
     rgb_img = cv2.cvtColor(rgb_img, cv2.COLOR_BGR2RGB)
 
-    # 加载热成像图像
+    # loadthermalimagingimage
     thermal_img = cv2.imread(thermal_path, cv2.IMREAD_GRAYSCALE)
     thermal_img = np.stack([thermal_img] * 3, axis=-1)
 
-    # 应用变换
+    # application/applytransformation
     data = {
         'rgb': rgb_img,
         'thermal': thermal_img,
-        'bboxes': np.zeros((0, 4)),  # 空标注
+        'bboxes': np.zeros((0, 4)),  # emptyannotation
         'labels': np.zeros((0,)),
         'occlusion': np.zeros((0,))
     }
@@ -95,38 +95,38 @@ def preprocess_images(rgb_path: str, thermal_path: str, input_size: tuple):
 
 
 def run_demo():
-    """运行演示"""
+    """runperformshow"""
     args = parse_args()
 
-    # 创建输出目录
+    # createoutputdirectory
     os.makedirs(args.output_dir, exist_ok=True)
 
-    # 设置设备
+    # setdevice
     device = torch.device(args.device if torch.cuda.is_available() and args.device == 'cuda' else 'cpu')
     print(f"Using device: {device}")
 
-    # 加载模型
+    # loadmodel
     model, config = load_model(args.config, args.checkpoint, device)
 
-    # 预处理图像
+    # predict/preprocessingimage
     input_size = config['data']['input_size']
     transformed_data, original_rgb = preprocess_images(
         args.rgb_image, args.thermal_image, input_size
     )
 
-    # 准备模型输入
+    # preparemodelinput
     rgb_tensor = transformed_data['rgb'].unsqueeze(0).to(device)
     thermal_tensor = transformed_data['thermal'].unsqueeze(0).to(device)
 
-    # 模型推理
+    # modelinference
     with torch.no_grad():
         print("Running model inference...")
         outputs = model(rgb_tensor, thermal_tensor)
 
-    # 可视化结果
+    # visualizationresult
     visualizer = Visualizer()
 
-    # 第一阶段结果
+    # firststageresult
     stage1_fig = visualizer.plot_detections(
         original_rgb,
         outputs['stage1_detections'],
@@ -137,7 +137,7 @@ def run_demo():
     stage1_fig.savefig(os.path.join(args.output_dir, 'stage1_detections.png'),
                        bbox_inches='tight', dpi=300)
 
-    # 第二阶段结果
+    # secondstageresult
     stage2_fig = visualizer.plot_detections(
         original_rgb,
         outputs['enhanced_detections'],
@@ -148,7 +148,7 @@ def run_demo():
     stage2_fig.savefig(os.path.join(args.output_dir, 'stage2_enhanced.png'),
                        bbox_inches='tight', dpi=300)
 
-    # 第三阶段结果
+    # thethreestageresult
     if outputs['risk_assessment']:
         risk_fig = visualizer.plot_risk_assessment(
             original_rgb,
@@ -158,7 +158,7 @@ def run_demo():
         risk_fig.savefig(os.path.join(args.output_dir, 'stage3_risk.png'),
                          bbox_inches='tight', dpi=300)
 
-    # 综合对比图
+    # comprehensivecomparisonimage
     comparison_fig = visualizer.create_comparison_plot(
         original_rgb,
         outputs['stage1_detections'],
@@ -168,7 +168,7 @@ def run_demo():
     comparison_fig.savefig(os.path.join(args.output_dir, 'comparison.png'),
                            bbox_inches='tight', dpi=300)
 
-    # 打印结果摘要
+    # printresultabstractneed
     print("\n" + "=" * 50)
     print("DEMO RESULTS SUMMARY")
     print("=" * 50)

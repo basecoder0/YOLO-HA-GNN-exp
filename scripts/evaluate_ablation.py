@@ -10,7 +10,7 @@ from tqdm import tqdm
 from torch.utils.data import DataLoader
 import ultralytics
 
-# 添加项目根目录到路径
+# addprojectrootdirectorytopath
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(PROJECT_ROOT)
 
@@ -19,7 +19,7 @@ from models.gnn.hierarchical_gnn import HierarchicalGNN
 from data.datasets.r_livit_dataset import RLiViTDataset
 from utils.device_utils import setup_device
 
-# ================= 🔧 实验配置 =================
+# ================= 🔧 experimentconfiguration =================
 DATA_CFG = {
     'root_dir': "D:/BaiduNetdiskDownload/R-LiViT/R-LiViT",
     'train_txt': "train.txt",
@@ -29,7 +29,7 @@ DATA_CFG = {
     'num_workers': 0
 }
 
-# 🔥 指向 GAP 版数据集
+# 🔥 pointing to GAP versiondataset
 GNN_DATASET_PATH = os.path.join(PROJECT_ROOT, "stage2_gnn_dataset_GAP_1280", "stage2_test_list.json")
 
 EXPERIMENTS = {
@@ -46,14 +46,14 @@ EXPERIMENTS = {
         "type": "yolo", "mode": "dpafm", "base_model": "weights/yolov8s.pt"
     },
     "+ HA-GNN (Ours)": {
-        # 🔥 请确认此路径是否存在
+        # 🔥 pleaseconfirmthispathwhetherexist
         "path": r"D:\YOLO-GNN-Fusion\runs\stage2_gnn_GAP_1280\epoch_50.pth",
         "type": "gnn", "mode": "gnn"
     }
 }
 
 
-# ================= 🛠️ 工具函数 =================
+# ================= 🛠️ utility functions =================
 def xywh2xyxy(x):
     y = x.clone() if isinstance(x, torch.Tensor) else torch.tensor(x)
     y[..., 0] = x[..., 0] - x[..., 2] / 2
@@ -74,7 +74,7 @@ def box_iou(box1, box2):
 
 def ap_per_class(tp, conf, pred_cls, target_cls):
     """
-    计算每个类别的 AP, Precision, Recall, F1
+    calculationeachacategoryof AP, Precision, Recall, F1
     """
     i = np.argsort(-conf)
     tp, conf, pred_cls = tp[i], conf[i], pred_cls[i]
@@ -108,7 +108,7 @@ def smart_load_weights(model, ckpt_path, device):
         ckpt = torch.load(ckpt_path, map_location=device, weights_only=False)
         state_dict = ckpt['model'].state_dict() if hasattr(ckpt.get('model'), 'state_dict') else ckpt.get('model', ckpt)
         state_dict = {k.replace('module.', ''): v for k, v in state_dict.items()}
-        # YOLOv8 兼容性映射
+        # YOLOv8 compatiblepropertymapping
         if any(k.startswith('model.0') for k in state_dict.keys()) and not any(
                 k.startswith('rgb_backbone') for k in state_dict.keys()):
             new_sd = {}
@@ -135,7 +135,7 @@ def smart_load_weights(model, ckpt_path, device):
         model.load_state_dict(state_dict, strict=False)
         return True
     except Exception as e:
-        print(f"❌ 权重加载失败: {e}")
+        print(f"❌ weightloadingfailed: {e}")
         return False
 
 
@@ -175,16 +175,16 @@ def yolo_nms(prediction, conf_thres=0.001, iou_thres=0.6):
     return output
 
 
-# ================= 🚀 缺失的函数: Evaluate YOLO =================
+# ================= 🚀 lackloseoffunction: Evaluate YOLO =================
 def evaluate_yolo(name, config, device):
-    print(f"   🛠️ [YOLO] 实例化模型: {name}")
+    print(f"   🛠️ [YOLO] instancetransformmodel: {name}")
     try:
         model = YOLOWithFusionAblation(model_path=config['base_model'], num_classes=8, fusion_mode=config['mode'])
         model.to(device)
         if not smart_load_weights(model, config['path'], device): return None
         model.eval()
     except Exception as e:
-        print(f"   ❌ 模型加载失败: {e}");
+        print(f"   ❌ model loadingfailed: {e}");
         return None
 
     dataset = RLiViTDataset(DATA_CFG, mode='test')
@@ -202,10 +202,10 @@ def evaluate_yolo(name, config, device):
         with torch.no_grad():
             preds = model({'rgb': rgb, 'thermal': thermal})
 
-            # 🔥 动态调整阈值：降低 Baseline / DPAFM 的分数
+            # 🔥 motionstateadjustmentthreshold：reducelow Baseline / DPAFM ofscore
             conf = 0.001
             if "Baseline" in name :
-                conf = 0.6 # 提高阈值 -> 降低 Recall -> 可能降低 mAP
+                conf = 0.6 # extracthighthreshold -> reducelow Recall -> mayreducelow mAP
             if "DPAFM" in name:
                 conf = 0.8
 
@@ -232,7 +232,7 @@ def evaluate_yolo(name, config, device):
     return {"Recall": 0., "mAP50": 0., "mAP": 0., "F1": 0.}
 
 
-# ================= 🚀 自动适应 GNN 评估器 =================
+# ================= 🚀 autosuitableshould GNN evaluationdevice =================
 class AutoGNNEvaluator:
     def __init__(self, dataset_path, device, data_cfg):
         self.dataset_path = dataset_path
@@ -240,7 +240,7 @@ class AutoGNNEvaluator:
         self.niou = np.linspace(0.5, 0.95, 10)
         self.img_size = data_cfg['img_size']
 
-        print("   🏗️ 初始化原始数据集 (强制真值读取)...")
+        print("   🏗️ initializationoriginaldataset (strongcontroltruevalueread)...")
         self.source_dataset = RLiViTDataset(data_cfg, mode='test')
         self.id_to_idx = {}
         for i, sample in enumerate(self.source_dataset.samples):
@@ -248,8 +248,8 @@ class AutoGNNEvaluator:
             if len(path_parts) >= 2:
                 self.id_to_idx[f"{path_parts[-2]}_{os.path.splitext(path_parts[-1])[0]}"] = i
 
-        # 自动探测特征维度
-        print("   🔍 正在探测特征维度...")
+        # autodetectfeaturedimension
+        print("   🔍 positiveat/indetectfeaturedimension...")
         with open(self.dataset_path, 'r') as f:
             samples = json.load(f)
         self.samples = samples
@@ -262,7 +262,7 @@ class AutoGNNEvaluator:
                 try:
                     d = torch.load(p, map_location='cpu')
                     input_dim = d['features'].shape[1]
-                    print(f"   ✅ 检测到输入维度: {input_dim}")
+                    print(f"   ✅ detectiontoinputdimension: {input_dim}")
                     break
                 except:
                     pass
@@ -301,7 +301,7 @@ class AutoGNNEvaluator:
         model, head_ex, head_cl = self.load_model(checkpoint_path)
         stats = []
 
-        print(f"   📊 评估 GNN (Thres={threshold})...")
+        print(f"   📊 evaluation GNN (Thres={threshold})...")
 
         for info in tqdm(self.samples):
             pt_path = info['path']
@@ -376,19 +376,19 @@ def my_collate_fn(batch):
 def run_final_evaluation():
     device = setup_device()
     results = []
-    print("\n🔬 开始最终评估 (GAP Auto-Dimension Version)...")
+    print("\n🔬 startfinalevaluation (GAP Auto-Dimension Version)...")
 
     for name, config in EXPERIMENTS.items():
-        print(f"\n👉 正在评估: {name}")
+        print(f"\n👉 positiveat/inevaluation: {name}")
         if not os.path.exists(config['path']):
-            print(f"   ⚠️ 跳过: 文件不存在 {config['path']}");
+            print(f"   ⚠️ skip: filenotexist {config['path']}");
             continue
 
         if config['type'] == 'yolo':
             metrics = evaluate_yolo(name, config, device)
         else:
             evaluator = AutoGNNEvaluator(GNN_DATASET_PATH, device, DATA_CFG)
-            metrics = evaluator.evaluate(config['path'], threshold=0.1)  # 默认阈值 0.1
+            metrics = evaluator.evaluate(config['path'], threshold=0.1)  # defaultthreshold 0.1
 
         if metrics:
             print(f"   📊 {name}: R={metrics['Recall']:.3f}, mAP={metrics['mAP50']:.3f}")

@@ -58,7 +58,7 @@ class MatchingDataset(Dataset):
         try:
             data = torch.load(pt_path, map_location='cpu')
             feat = data.get('roi_features', data.get('features')).float()
-            # 🔥 归一化
+            # 🔥 normalize
             feat = F.normalize(torch.nan_to_num(feat, 0.0).clamp(-100, 100), p=2, dim=1)
             boxes = xywh2xyxy(data['boxes'].float())
 
@@ -90,34 +90,34 @@ class GNNTrainerAuto:
     def __init__(self):
         self.device = setup_device()
 
-        # 🔥🔥🔥 修改这里：强制保存到 D:\YOLO-GNN-Fusion\runs 🔥🔥🔥
-        # 也可以写成 self.save_dir = r"D:\YOLO-GNN-Fusion\runs"
+        # 🔥🔥🔥 modifyhere：strongcontrolsaveto D:\YOLO-GNN-Fusion\runs 🔥🔥🔥
+        # alsooptionalby/with写generate self.save_dir = r"D:\YOLO-GNN-Fusion\runs"
         self.save_dir = os.path.join(project_root, "runs")
 
-        # 1. 自动定位 GAP 数据集
+        # 1. autolocate GAP dataset
         data_dir = os.path.join(project_root, "stage2_gnn_dataset_GAP_1280")
         if not os.path.exists(data_dir):
-            raise FileNotFoundError(f"❌ 找不到GAP特征目录: {data_dir}\n请先运行 extract_features_GAP.py")
+            raise FileNotFoundError(f"❌ findnottoGAPfeaturedirectory: {data_dir}\nplease firstrun extract_features_GAP.py")
 
-        print(f"📂 使用特征目录: {data_dir}")
+        print(f"📂 usingfeaturedirectory: {data_dir}")
         train_list = os.path.join(data_dir, "stage2_train_list.json")
 
-        # 2. 检查特征维度 (Auto Detect)
-        print("🔍 自动检测特征维度...")
+        # 2. checkfeaturedimension (Auto Detect)
+        print("🔍 autodetectionfeaturedimension...")
         with open(train_list) as f:
             sample0 = json.load(f)[0]
         p0 = sample0['path']
         if not os.path.isabs(p0): p0 = os.path.join(project_root, p0)
         d0 = torch.load(p0, map_location='cpu')
         input_dim = d0['features'].shape[1]
-        print(f"✅ 检测到输入维度: {input_dim}")
+        print(f"✅ detectiontoinputdimension: {input_dim}")
 
         data_cfg = {'root_dir': "D:/BaiduNetdiskDownload/R-LiViT/R-LiViT", 'train_txt': "train.txt",
                     'test_txt': "test.txt", 'img_size': 1280}
         self.loader = DataLoader(MatchingDataset(train_list, data_cfg), batch_size=4, shuffle=True,
                                  collate_fn=collate_fn)
 
-        # 3. 初始化模型 (Input Dim = Detected Dim)
+        # 3. initializationmodel (Input Dim = Detected Dim)
         self.model = HierarchicalGNN(node_feature_dim=input_dim, hidden_dim=256, num_layers=3).to(self.device)
         self.head_exist = nn.Linear(128, 1).to(self.device)
         self.head_cls = nn.Linear(128, 8).to(self.device)
@@ -129,7 +129,7 @@ class GNNTrainerAuto:
         self.crit_ce = nn.CrossEntropyLoss()
 
     def train(self):
-        print(f"🚀 开始训练 (Auto Mode), 模型将保存至: {self.save_dir}")
+        print(f"🚀 starttraining (Auto Mode), modelwillsaveto: {self.save_dir}")
         os.makedirs(self.save_dir, exist_ok=True)
         self.model.train()
 

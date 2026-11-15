@@ -3,9 +3,9 @@ import torch
 
 def fusion_collate_fn(batch):
     """
-    自定义 Collate Function
-    将 list of dicts 转换为 dict of tensors
-    并正确处理 labels 的 batch_idx
+    custom Collate Function
+    will list of dicts convertfor/as dict of tensors
+    andpositivesureprocessing labels of batch_idx
     """
     rgb_list = []
     thermal_list = []
@@ -15,10 +15,10 @@ def fusion_collate_fn(batch):
         rgb_list.append(item['rgb'])
         thermal_list.append(item['thermal'])
 
-        # 更新 labels 中的 batch_idx
+        # update labels inof batch_idx
         lbl = item['labels']
         if lbl.shape[0] > 0:
-            lbl[:, 0] = i  # 设置当前 batch index
+            lbl[:, 0] = i  # setwhenfirst batch index
         labels_list.append(lbl)
 
     return {

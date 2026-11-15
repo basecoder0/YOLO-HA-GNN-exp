@@ -34,7 +34,7 @@ class SpatialAttentionLayer(nn.Module):
         if x.size(0) == 0: return x
         out = self.attention(x, edge_index)
         if spatial_weights is not None:
-            # 维度对齐保护
+            # dimensionpair齐keepprotect
             out = out * spatial_weights.unsqueeze(1)
         return self.norm(out + x)
 
@@ -56,7 +56,7 @@ class MotionAttentionLayer(nn.Module):
 
 class HierarchicalGNN(nn.Module):
     """
-    分层注意力 GNN (最终稳健版：LayerNorm + Tanh + Epsilon + Clamp)
+    score/dividelayernoteability GNN (final稳健version：LayerNorm + Tanh + Epsilon + Clamp)
     """
     def __init__(self,
                  node_feature_dim: int = 256,
@@ -76,17 +76,17 @@ class HierarchicalGNN(nn.Module):
         self.max_nodes = max_nodes
         self.k_neighbors = k_neighbors
 
-        # 1. 节点特征编码器
+        # 1. nodefeatureencodingdevice
         self.node_encoder = nn.Sequential(
             nn.Linear(node_feature_dim, hidden_dim),
-            nn.LayerNorm(hidden_dim), # 输入稳健化
+            nn.LayerNorm(hidden_dim), # input稳健transform
             nn.ReLU(inplace=True),
             nn.Dropout(dropout),
             nn.Linear(hidden_dim, hidden_dim),
             nn.LayerNorm(hidden_dim)
         )
 
-        # 2. 分层注意力
+        # 2. score/dividelayernoteability
         self.appearance_attention = AppearanceAttentionLayer(hidden_dim, heads, dropout)
         self.spatial_attention = SpatialAttentionLayer(hidden_dim, heads, dropout)
         self.motion_attention = MotionAttentionLayer(hidden_dim, heads, dropout)
@@ -94,25 +94,25 @@ class HierarchicalGNN(nn.Module):
         if occlusion_aware:
             self.occlusion_weights = nn.Parameter(torch.ones(3))
 
-        # 3. GNN 层
+        # 3. GNN layer
         self.gnn_layers = nn.ModuleList()
         self.norms = nn.ModuleList()
         for _ in range(num_layers - 1):
             self.gnn_layers.append(GATConv(hidden_dim, hidden_dim, heads=1, concat=False))
             self.norms.append(nn.LayerNorm(hidden_dim))
 
-        # 4. 输出投影
+        # 4. outputprojection
         self.output_proj = nn.Sequential(
             nn.Linear(hidden_dim, hidden_dim // 2),
             nn.LayerNorm(hidden_dim // 2),
-            nn.Tanh(), # 🔥 限制输出范围 [-1, 1]，防止梯度爆炸
+            nn.Tanh(), # 🔥 limitoutputrange [-1, 1]，preventgradient爆炸
             nn.Dropout(dropout),
             nn.Linear(hidden_dim // 2, hidden_dim // 2)
         )
 
     def _filter_nodes(self, features, bboxes, scores):
         num_nodes = features.size(0)
-        # 空图保护
+        # emptyimagekeepprotect
         if num_nodes == 0: return features, bboxes, []
 
         if num_nodes <= self.max_nodes:
@@ -122,7 +122,7 @@ class HierarchicalGNN(nn.Module):
             s = scores if isinstance(scores, torch.Tensor) else torch.tensor(scores)
             if s.dim() > 1: s = s[:, 0]
 
-            # 长度不匹配保护
+            # lengthnotmatchkeepprotect
             if s.size(0) != num_nodes:
                 keep_indices = torch.randperm(num_nodes)[:self.max_nodes].tolist()
             else:
@@ -158,7 +158,7 @@ class HierarchicalGNN(nn.Module):
 
         weights = torch.zeros(num_nodes, device=device)
 
-        # 🔥 防除零保护 (Epsilon)
+        # 🔥 防divide/removezerokeepprotect (Epsilon)
         diag = math.sqrt(image_size[0]**2 + image_size[1]**2) + 1e-6
         cx, cy = image_size[0]/2, image_size[1]/2
 
@@ -166,17 +166,17 @@ class HierarchicalGNN(nn.Module):
             bcx, bcy = (b[0]+b[2])/2, (b[1]+b[3])/2
             d = math.sqrt((bcx-cx)**2 + (bcy-cy)**2)
 
-            # 🔥 数值计算保护
+            # 🔥 valuecalculationkeepprotect
             weights[i] = 1.0 - (d / diag)
 
-        # 🔥 范围强制截断 [0, 1]
+        # 🔥 rangestrongcontrolcutbreak [0, 1]
         return torch.clamp(weights, min=0.0, max=1.0)
 
     def forward(self, node_features: List[torch.Tensor], bboxes: List[List[List[float]]], confidence_scores: List[torch.Tensor] = None):
         batch_data_list = []
         keep_indices_list = []
 
-        # 空批次保护
+        # emptybatchminorkeepprotect
         if not node_features:
             return torch.zeros(0, self.hidden_dim // 2), [], None
 
@@ -204,7 +204,7 @@ class HierarchicalGNN(nn.Module):
         if x.size(0) == 0:
             return torch.zeros(0, self.hidden_dim // 2, device=device), keep_indices_list, batch.batch
 
-        # GNN 前向传播
+        # GNN forward propagation
         x = self.node_encoder(x)
 
         x_app = self.appearance_attention(x, edge_index)

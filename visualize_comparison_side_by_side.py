@@ -8,7 +8,7 @@ import torchvision
 from tqdm import tqdm
 from ultralytics import YOLO
 
-# 自动定位项目根目录
+# auto locate project rootdirectory
 current_file_path = os.path.abspath(__file__)
 project_root = os.path.dirname(current_file_path)
 sys.path.append(project_root)
@@ -18,28 +18,28 @@ from models.yolo.yolo_with_fusion import YOLOWithFusion
 from utils.device_utils import setup_device
 from ultralytics.utils.ops import xywh2xyxy
 
-# ================= 🔧 配置区域 =================
+# ================= 🔧 configuration area =================
 
-# 🔥🔥🔥 阈值调整区 (手动修改这里) 🔥🔥🔥
-CONF_THRES_BASE = 0.40  # Baseline (YOLOv8) 阈值
-CONF_THRES_OURS = 0.40  # Ours (HA-GNN) 阈值
+# 🔥🔥🔥 threshold adjustment area (modify here manually) 🔥🔥🔥
+CONF_THRES_BASE = 0.40  # Baseline (YOLOv8) threshold
+CONF_THRES_OURS = 0.40  # Ours (HA-GNN) threshold
 
 DATASET_DIR = "stage2_gnn_dataset_GAP_1280"
-# Ours 权重
+# Ours weight
 CHECKPOINT_OURS = r"D:\YOLO-GNN-Fusion\runs\stage2_gnn_GAP_1280\epoch_50.pth"
-# Baseline 权重 (纯 YOLOv8)
+# Baseline weight (pure YOLOv8)
 CHECKPOINT_BASE = r"D:\YOLO-GNN-Fusion\weights\yolov8s.pt"
 
-# 输出目录
+# outputdirectory
 OUTPUT_DIR = os.path.join(project_root, "comparison_vis", "side_by_side")
 
-# 类别映射 (0-based)
+# category mapping (0-based)
 CLASS_MAP = {
     0: 'Car', 1: 'Person', 2: 'Bicycle', 3: 'Motorcycle',
     4: 'Bus', 5: 'Truck', 6: 'Tramway', 7: 'Escooter'
 }
 
-# 颜色表 (BGR格式) - Baseline 和 Ours 统一使用此表
+# color table (BGRformat) - Baseline and Ours countoneusingthistable
 COLORS_OURS = {
     0: (0, 255, 0),  # Car: Green
     1: (0, 255, 255),  # Person: Yellow
@@ -53,7 +53,7 @@ COLORS_OURS = {
 }
 
 
-# ================= 🛠️ 工具函数 =================
+# ================= 🛠️ utility functions =================
 def scale_coords(img1_shape, coords, img0_shape):
     gain = min(img1_shape[0] / img0_shape[0], img1_shape[1] / img0_shape[1])
     pad = (img1_shape[1] - img0_shape[1] * gain) / 2, (img1_shape[0] - img0_shape[0] * gain) / 2
@@ -79,15 +79,15 @@ def apply_nms(boxes, scores, labels, iou_thres=0.3):
 def draw_box(img, box, cls_id, score, is_ours=True):
     x1, y1, x2, y2 = map(int, box)
 
-    # 统一使用 COLORS_OURS 获取颜色
+    # countoneusing COLORS_OURS getcolor
     color = COLORS_OURS.get(cls_id, COLORS_OURS['default'])
     label = f"{CLASS_MAP.get(cls_id, 'Unk')} {score:.2f}"
 
-    # 为了区分 Baseline 和 Ours，Baseline 用细一点的线
+    # toareascore/divide Baseline and Ours，Baseline usefinea bitofline
     thick = 2 if is_ours else 1
     cv2.rectangle(img, (x1, y1), (x2, y2), color, thick)
 
-    # 标签背景
+    # labelbackground
     font_scale = 0.6
     (tw, th), baseline = cv2.getTextSize(label, cv2.FONT_HERSHEY_SIMPLEX, font_scale, 1)
 
@@ -102,7 +102,7 @@ def draw_box(img, box, cls_id, score, is_ours=True):
 
     cv2.rectangle(img, (x1, t_y1), (x1 + tw + 5, t_y2), color, -1)
 
-    # 文字颜色
+    # textcolor
     text_color = (0, 0, 0)
     cv2.putText(img, label, (x1 + 2, t_y2 - 5),
                 cv2.FONT_HERSHEY_SIMPLEX, font_scale, text_color, 1, cv2.LINE_AA)
@@ -110,12 +110,12 @@ def draw_box(img, box, cls_id, score, is_ours=True):
 
 def main():
     device = setup_device()
-    print(f"🚀 开始生成对比图 (Base阈值={CONF_THRES_BASE}, Ours阈值={CONF_THRES_OURS})...")
+    print(f"🚀 startgeneratecomparisonimage (Basethreshold={CONF_THRES_BASE}, Oursthreshold={CONF_THRES_OURS})...")
 
-    # 1. 加载 Baseline (YOLOv8)
+    # 1. load Baseline (YOLOv8)
     model_base = YOLO(CHECKPOINT_BASE)
 
-    # 2. 加载 Ours (Stage 2)
+    # 2. load Ours (Stage 2)
     list_path = os.path.join(project_root, DATASET_DIR, "stage2_test_list.json")
     with open(list_path, 'r') as f:
         samples = json.load(f)
@@ -141,7 +141,7 @@ def main():
 
     os.makedirs(OUTPUT_DIR, exist_ok=True)
 
-    # 3. 遍历
+    # 3. traverse
     save_count = 0
     for info in tqdm(samples, desc="Comparing"):
         try:
@@ -179,7 +179,7 @@ def main():
             if keep and len(keep) > 0:
                 for i, idx in enumerate(keep[0]):
                     conf = p_ex[i].item()
-                    # 🔥 使用配置的阈值
+                    # 🔥 use threshold from configuration
                     if conf > CONF_THRES_OURS:
                         cls = p_cl[i].item()
                         if cls not in CLASS_MAP: continue
@@ -204,11 +204,11 @@ def main():
             canvas_base = img0.copy()
             canvas_ours = img0.copy()
 
-            # COCO映射表
+            # COCOmappingtable
             coco_map = {0: 1, 1: 2, 2: 0, 3: 3, 5: 4, 7: 5}
 
             for b, c, s in zip(base_boxes, base_cls, base_conf):
-                # 🔥 使用配置的阈值
+                # 🔥 use threshold from configuration
                 if s < CONF_THRES_BASE: continue
 
                 coco_id = int(c)
@@ -235,7 +235,7 @@ def main():
         except Exception as e:
             continue
 
-    print(f"\n✅ 对比图生成完成！共 {save_count} 张，请查看: {OUTPUT_DIR}")
+    print(f"\n✅ comparisonimagegeneratecompleted！total {save_count} tensor，please check: {OUTPUT_DIR}")
 
 
 if __name__ == "__main__":

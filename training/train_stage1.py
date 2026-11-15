@@ -8,17 +8,17 @@ import numpy as np
 from tqdm import tqdm
 from torch.utils.data import DataLoader
 
-# === 导入官方 Loss 和工具类 ===
+# === Import official Loss and utility classes ===
 from ultralytics.utils.loss import v8DetectionLoss
 from ultralytics.utils import IterableSimpleNamespace
 
-# 尝试导入 NMS (用于验证阶段，虽然本脚本主要跑训练，但保留接口)
+# Try to import NMS (used for validation phase, although this script mainly runs training, keep the interface)
 try:
     from ultralytics.utils.ops import non_max_suppression
 except ImportError:
     from ultralytics.utils.nms import non_max_suppression
 
-# 添加项目路径
+# Add project path
 sys.path.append(os.getcwd())
 
 from models.yolo.yolo_with_fusion import YOLOWithFusion
@@ -27,7 +27,7 @@ from data.dataloaders.collate_fn import fusion_collate_fn
 
 
 def train():
-    # 1. 加载配置
+    # 1. Load config
     config_path = 'configs/train/stage1.yaml'
     with open(config_path, 'r', encoding='utf-8') as f:
         cfg = yaml.safe_load(f)
@@ -35,43 +35,43 @@ def train():
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     print(f"🚀 Starting Official Stage 1 Training on {device}...")
 
-    # 2. 数据加载 (全量模式)
+    # 2. Data loading (full mode)
     print("📚 Loading Full Dataset...")
     train_dataset = RLiViTDataset(cfg['data'], mode='train')
 
-    # === 🚨 正式训练：移除切片限制 ===
-    # train_dataset.samples = train_dataset.samples[:16] <--- 已移除
+    # === 🚨 Formal training: remove slicing limit ===
+    # train_dataset.samples = train_dataset.samples[:16] <--- Removed
 
     print(f"✅ Loaded {len(train_dataset)} training samples.")
 
     train_loader = DataLoader(
         train_dataset,
         batch_size=cfg['data']['batch_size'],
-        shuffle=True,  # 正式训练必须打乱！
+        shuffle=True,  # Formal training must shuffle!
         collate_fn=fusion_collate_fn,
         num_workers=cfg['data']['num_workers'],
         pin_memory=True
     )
 
-    # 3. 模型初始化
+    # 3. Model initialization
     model = YOLOWithFusion(model_path='weights/yolov8s.pt', num_classes=cfg['model']['num_classes'])
     model.to(device)
 
     print("🔥 Model initialized. Backbone & Neck are unlocked.")
 
-    # 4. 优化器 (使用 AdamW，因为之前的测试证明它收敛效果好)
+    # 4. Optimizer (use AdamW, because previous testing proves it converges well)
     hyp = cfg['hyperparameters']
-    # 稍微调低一点学习率，全量数据下 0.002 可能太激进，0.001 比较稳
+    # Lower the learning rate slightly, 0.002 might be too aggressive with full data, 0.001 is more stable
     base_lr = 0.001
     optimizer = optim.AdamW(model.parameters(), lr=base_lr, weight_decay=hyp['weight_decay'])
 
-    # 5. 学习率调度策略
-    # 线性衰减：从 lr 到 lr * 0.01
+    # 5. Learning rate scheduling strategy
+    # Linear decay: from lr to lr * 0.01
     lf = lambda x: ((1 - x / hyp['epochs']) * (1.0 - hyp['lrf']) + hyp['lrf'])
     scheduler = optim.lr_scheduler.LambdaLR(optimizer, lr_lambda=lf)
 
-    # 6. Loss 配置
-    # 之前的测试证明 box=10.0 有效，我们保留这个强化设置
+    # 6. Loss configuration
+    # Previous testing proved box=10.0 is effective, we keep this enhanced setting
     if 'box' not in hyp: hyp['box'] = 7.5
     if 'cls' not in hyp: hyp['cls'] = 0.5
     if 'dfl' not in hyp: hyp['dfl'] = 1.5
@@ -79,25 +79,25 @@ def train():
     model.args = IterableSimpleNamespace(**hyp)
     model.model = [model.head]
 
-    # 再次确保 Head 参数正确
+    # Ensure Head parameters are correct once more
     if not hasattr(model.head, 'reg_max'):
         model.head.reg_max = 16
 
     criterion = v8DetectionLoss(model)
 
-    # 7. 训练循环
+    # 7. trainingloop
     save_dir = f"runs/{cfg['experiment_name']}"
     os.makedirs(save_dir, exist_ok=True)
     log_file = os.path.join(save_dir, 'results.csv')
 
-    # Warmup 参数
+    # Warmup parameter
     for x in optimizer.param_groups:
         x['initial_lr'] = x['lr']
 
-    # 3个 Epoch 的 Warmup
+    # 3a Epoch of Warmup
     nw = max(round(3 * len(train_loader)), 100)
 
-    # 写入日志表头
+    # writelogtablehead
     with open(log_file, 'w') as f:
         f.write('epoch,train/box_loss,train/cls_loss,train/dfl_loss,total_loss,lr\n')
 
@@ -123,7 +123,7 @@ def train():
             rgb = batch['rgb'].to(device)
             thermal = batch['thermal'].to(device)
 
-            # 归一化急救 (保留以防万一)
+            # normalize急救 (keepkeepby/with防万one)
             if rgb.max() > 1.0: rgb = rgb.float() / 255.0
             if thermal.max() > 1.0: thermal = thermal.float() / 255.0
 
@@ -171,7 +171,7 @@ def train():
         # Saving
         torch.save(model.state_dict(), os.path.join(save_dir, 'last.pt'))
 
-        # 简单保存策略：loss 创新低就保存 best
+        # simplesavestrategyomit：loss 创newlow就save best
         if avg_loss < best_loss:
             best_loss = avg_loss
             torch.save(model.state_dict(), os.path.join(save_dir, 'best.pt'))

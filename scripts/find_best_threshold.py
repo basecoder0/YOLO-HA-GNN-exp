@@ -18,22 +18,22 @@ from scripts.evaluate_ablation import RobustGNNEvaluator, DATA_CFG, GNN_DATASET_
 
 def sweep_thresholds():
     device = setup_device()
-    print(f"🚀 开始 GNN 阈值扫描 (寻找最佳 mAP)...")
+    print(f"🚀 start GNN thresholdscandepict (searchfindbest mAP)...")
 
-    # 你的 GNN 权重
+    # youof GNN weight
     ckpt_path = r"D:\YOLO-GNN-Fusion\runs\stage2_gnn_1280\epoch_100.pth"
     if not os.path.exists(ckpt_path):
-        print("❌ 找不到权重文件");
+        print("❌ findnottoweightfile");
         return
 
-    # 初始化评估器
+    # initializationevaluationdevice
     evaluator = RobustGNNEvaluator(GNN_DATASET_PATH, device, DATA_CFG)
 
-    # 加载模型
+    # loadmodel
     model, head_ex, head_cl = evaluator.load_model(ckpt_path)
 
-    # 加载所有数据到内存 (加速扫描)
-    print("⏳ 正在预加载数据...")
+    # loadalldatatoinsideexist (addspeedscandepict)
+    print("⏳ positiveat/inpredict/preloadingdata...")
     with open(GNN_DATASET_PATH, 'r') as f:
         samples = json.load(f)
 
@@ -47,27 +47,27 @@ def sweep_thresholds():
         raw_feat = data.get('roi_features', data.get('features'))
         if raw_feat is None: continue
 
-        # 预处理
+        # predict/preprocessing
         feat = F.normalize(torch.nan_to_num(raw_feat.float(), 0.0).clamp(-100, 100), p=2, dim=1)
         boxes = data['boxes'].float()
         scores = data['scores'][:, 0]
 
-        # 推理一次，保存结果
+        # inferenceoneminor，saveresult
         with torch.no_grad():
             out, keep, _ = model([feat], [boxes], [scores])
             p_ex = torch.sigmoid(head_ex(out))
             p_cl = torch.argmax(head_cl(out), dim=1)
 
-        # 获取真值
+        # gettruevalue
         labels = evaluator.get_gt_labels(info['id'])
 
         cached_data.append({
             'keep': keep[0], 'boxes': boxes, 'p_ex': p_ex, 'p_cl': p_cl, 'labels': labels
         })
 
-    print(f"✅ 数据预加载完成 ({len(cached_data)} 样本). 开始扫描...")
+    print(f"✅ datapredict/preloadingcompleted ({len(cached_data)} sample). startscandepict...")
 
-    # 🔥 扫描不同阈值
+    # 🔥 scandepictnotsamethreshold
     thresholds = [0.01, 0.05, 0.1, 0.15, 0.2, 0.25, 0.3, 0.4, 0.5]
     best_map = 0.0
     best_res = None
@@ -81,18 +81,18 @@ def sweep_thresholds():
             keep_idxs = d['keep']
             if len(keep_idxs) == 0: continue
 
-            # 还原坐标
+            # restorecoordinate
             pred_boxes = d['boxes'][keep_idxs] * evaluator.img_size  # xywh
-            # ⚠️ 注意：这里要转 xyxy！
-            # 这里的 boxes 是来自 .pt，我们刚才确认了它是 xywh (center)
-            # 所以需要转换
+            # ⚠️ note：hereneedconvert xyxy！
+            # hereof boxes istoself .pt，our刚才confirmpast tense markeritis xywh (center)
+            # allby/withneedconvert
             from scripts.evaluate_ablation import xywh2xyxy
             pred_boxes = xywh2xyxy(pred_boxes)
 
             pred_scores = d['p_ex'].squeeze()
             pred_cls = d['p_cl']
 
-            # 🔥 应用当前阈值
+            # 🔥 application/applywhenfirstthreshold
             mask = pred_scores > th
 
             p_box = pred_boxes[mask]
@@ -110,13 +110,13 @@ def sweep_thresholds():
             keep_nms = torchvision.ops.nms(preds[:, :4], preds[:, 4], 0.3)
             preds = preds[keep_nms]
 
-            # 统计
+            # statistics
             from scripts.evaluate_ablation import process_batch_statistics, ap_per_class
             correct = process_batch_statistics(preds, d['labels'], evaluator.niou)
             stats.append(
                 (correct, preds[:, 4].cpu().numpy(), preds[:, 5].cpu().numpy(), d['labels'][:, 0].cpu().numpy()))
 
-        # 计算指标
+        # calculationmetric
         stats = [np.concatenate(x, 0) for x in zip(*stats)]
         if len(stats) and stats[0].any():
             p, r, ap, f1 = ap_per_class(*stats)
@@ -130,15 +130,15 @@ def sweep_thresholds():
                 best_map = map50
                 best_res = {'th': th, 'r': recall, 'map': map50, 'f1': f1_score}
 
-    print("\n🏆 最佳结果:")
-    print(f"阈值: {best_res['th']}")
+    print("\n🏆 bestresult:")
+    print(f"threshold: {best_res['th']}")
     print(f"Recall: {best_res['r']:.3f}")
-    print(f"mAP50: {best_res['map']:.3f} (对比 DPAFM: 0.347)")
+    print(f"mAP50: {best_res['map']:.3f} (comparison DPAFM: 0.347)")
 
     if best_res['map'] > 0.347:
-        print("✅ 恭喜！Ours 成功超越 Stage 1！")
+        print("✅ 恭喜！Ours successexceedmore/greater Stage 1！")
     else:
-        print("⚠️ 仍然未超越。可能原因：GNN 训练不足，或特征提取有问题。")
+        print("⚠️ 仍thennotexceedmore/greater。mayoriginalbecause：GNN trainingnot足，orfeatureextracthaveproblem。")
 
 
 if __name__ == "__main__":

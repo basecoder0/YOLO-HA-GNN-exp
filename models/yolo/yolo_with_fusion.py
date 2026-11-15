@@ -9,54 +9,54 @@ import math
 
 class YOLOWithFusion(nn.Module):
     """
-    [自适应最终版] 双流 YOLOv8 融合模型
-    特性：
-    1. 自动适配 yolov8n/s/m 不同规模的通道数 (不再硬编码)
-    2. 包含《避坑指南》所有防御机制
+    [selfsuitableshouldfinalversion] dual stream YOLOv8 fusionmodel
+    特property：
+    1. autoadapt yolov8n/s/m notsamerule/conventionmodelofchannelcount (notthen硬encoding)
+    2. contains《避坑point南》all防御machinecontrol
     """
 
     def __init__(self, model_path='weights/yolov8s.pt', num_classes=8):
         super().__init__()
         print(f"🏗️ Loading base model from {model_path} ...")
 
-        # 加载基础模型
+        # loadbasicmodel
         base_model = YOLO(model_path)
-        m = base_model.model.model  # 获取内部 Sequential
+        m = base_model.model.model  # getinsidepart Sequential
 
-        # --- 1. 双流骨干 ---
+        # --- 1. dual streamskeletondry ---
         self.rgb_backbone = nn.ModuleList(copy.deepcopy(m[:10]))
         self.thermal_backbone = nn.ModuleList(copy.deepcopy(m[:10]))
 
-        # --- 🔥 核心修复: 自动检测通道数 🔥 ---
-        # 必须动态获取，否则换模型必报错
+        # --- 🔥 core fix: autodetectionchannelcount 🔥 ---
+        # mustmustmotionstateget，elsechangemodelmusterror
         try:
             ch_p3 = m[4].cv2.conv.out_channels
             ch_p4 = m[6].cv2.conv.out_channels
             ch_p5 = m[9].cv2.conv.out_channels
         except AttributeError:
-            # 兼容旧版权重
+            # compatibleoldversionweight
             ch_p3 = m[4].c2
             ch_p4 = m[6].c2
             ch_p5 = m[9].c2
 
         print(f"🔍 [Auto-Config] Detected Channels: P3={ch_p3}, P4={ch_p4}, P5={ch_p5}")
 
-        # --- 2. 融合模块 (使用检测到的通道数) ---
+        # --- 2. fusionmodule (usingdetectiontoofchannelcount) ---
         self.fusion_p3 = DPAFM(ch_p3)
         self.fusion_p4 = DPAFM(ch_p4)
         self.fusion_p5 = DPAFM(ch_p5)
 
-        # --- 3. 颈部网络 ---
+        # --- 3. 颈partnetworknetwork ---
         self.neck_layers = nn.ModuleList(copy.deepcopy(m[10:22]))
 
-        # --- 4. 检测头 ---
+        # --- 4. detectionhead ---
         self.head = copy.deepcopy(m[22])
 
         if self.head.nc != num_classes:
             self._reset_head(num_classes)
 
     def _reset_head(self, num_classes):
-        """重置检测头 (包含初始化和Buffer修复)"""
+        """resetdetectionhead (containsinitializationandBufferfix)"""
         self.head.nc = num_classes
         self.head.no = num_classes + self.head.reg_max * 4
 
@@ -128,7 +128,7 @@ class YOLOWithFusion(nn.Module):
         out_4 = self.neck_layers[11](x)
 
         outputs = [out_2, out_3, out_4]
-        # 🔥 The "Shape" Trap 防御：按尺寸排序
+        # 🔥 The "Shape" Trap 防御：persizearrangesequence
         outputs.sort(key=lambda x: x.shape[2], reverse=True)
 
         return self.head(outputs)

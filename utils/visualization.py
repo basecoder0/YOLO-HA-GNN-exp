@@ -7,7 +7,7 @@ import cv2
 
 
 class Visualizer:
-    """可视化工具类"""
+    """visualizationtoolclass"""
 
     def __init__(self, class_names: List[str] = None):
         self.class_names = class_names or ['pedestrian', 'vehicle', 'bicycle']
@@ -29,7 +29,7 @@ class Visualizer:
                         title: str = "Detections",
                         show_confidence: bool = True,
                         show_risk: bool = False) -> plt.Figure:
-        """绘制检测结果"""
+        """drawdetectionresult"""
         fig, ax = plt.subplots(1, 1, figsize=(12, 8))
         ax.imshow(image)
 
@@ -40,7 +40,7 @@ class Visualizer:
             risk_score = det.get('preliminary_risk', 0.0)
 
             if len(bbox) == 4:
-                # 绘制边界框
+                # drawboundarybox
                 class_name = self.class_names[class_id] if class_id < len(self.class_names) else f'class_{class_id}'
                 color = self.colors.get(class_name, 'white')
 
@@ -50,7 +50,7 @@ class Visualizer:
                 )
                 ax.add_patch(rect)
 
-                # 添加标签
+                # addlabel
                 label_parts = [class_name]
                 if show_confidence:
                     label_parts.append(f'conf: {confidence:.2f}')
@@ -71,18 +71,18 @@ class Visualizer:
                              image: np.ndarray,
                              risk_results: Dict,
                              title: str = "Risk Assessment") -> plt.Figure:
-        """绘制风险评估结果"""
+        """drawriskevaluationresult"""
         fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(16, 6))
 
-        # 左侧：检测结果
+        # 左侧：detectionresult
         ax1.imshow(image)
         ax1.set_title("Detections with Risk Scores")
 
-        # 右侧：风险分析
+        # 右侧：riskanalysis
         ax2.axis('off')
         ax2.set_title("Risk Analysis")
 
-        # 绘制目标风险
+        # drawtargetrisk
         target_risks = risk_results.get('target_risks', [])
         y_pos = 0.9
         for target_risk in target_risks:
@@ -95,7 +95,7 @@ class Visualizer:
                      transform=ax2.transAxes)
             y_pos -= 0.08
 
-            # 在左侧图像上绘制风险框
+            # at/in左侧imageabovedrawriskbox
             bbox = target_risk.get('bbox', [])
             if len(bbox) == 4:
                 rect = patches.Rectangle(
@@ -104,12 +104,12 @@ class Visualizer:
                 )
                 ax1.add_patch(rect)
 
-                # 添加风险分数
+                # addriskscore
                 ax1.text(bbox[0], bbox[1] - 8, f"Risk: {target_risk['combined_risk']:.2f}",
                          color=color, fontsize=8, weight='bold',
                          bbox=dict(boxstyle="round,pad=0.3", facecolor=color, alpha=0.3))
 
-        # 绘制冲突对
+        # drawconflict pair
         conflict_pairs = risk_results.get('conflict_pairs', [])
         y_pos -= 0.05
         ax2.text(0.1, y_pos, "Conflict Pairs:", fontsize=10, weight='bold', transform=ax2.transAxes)
@@ -124,7 +124,7 @@ class Visualizer:
             ax2.text(0.15, y_pos, conflict_text, color=color, fontsize=9, transform=ax2.transAxes)
             y_pos -= 0.05
 
-        # 总体风险
+        # totalbodyrisk
         overall_risk = risk_results.get('overall_risk', 0.0)
         overall_level = self._get_risk_level(overall_risk)
         overall_color = self.risk_colors.get(overall_level, 'gray')
@@ -132,7 +132,7 @@ class Visualizer:
         ax2.text(0.1, 0.05, f"Overall Risk: {overall_risk:.3f}",
                  color=overall_color, fontsize=12, weight='bold', transform=ax2.transAxes)
 
-        # 预警信息
+        # predict/prealertinformation
         warnings = risk_results.get('warnings', [])
         if warnings:
             ax2.text(0.1, 0.02, f"Warning: {warnings[0]}",
@@ -142,7 +142,7 @@ class Visualizer:
         return fig
 
     def _get_risk_level(self, risk_score: float) -> str:
-        """根据风险分数获取风险等级"""
+        """rootaccordingriskscoregetriskwaitlevel"""
         if risk_score > 0.8:
             return 'critical'
         elif risk_score > 0.6:
@@ -153,10 +153,10 @@ class Visualizer:
             return 'low'
 
     def plot_attention_weights(self, attention_weights: Dict) -> plt.Figure:
-        """绘制注意力权重"""
+        """drawnoteabilityweight"""
         fig, axes = plt.subplots(2, 2, figsize=(12, 10))
 
-        # 空间注意力权重
+        # emptyspacenoteabilityweight
         if 'spatial_weights' in attention_weights:
             spatial_weights = attention_weights['spatial_weights']
             if spatial_weights.numel() > 0:
@@ -164,7 +164,7 @@ class Visualizer:
                 axes[0, 0].set_title('Spatial Attention Weights')
                 plt.colorbar(im1, ax=axes[0, 0])
 
-        # 通道注意力权重（RGB）
+        # channelnoteabilityweight（RGB）
         if 'channel_weights_rgb' in attention_weights:
             channel_rgb = attention_weights['channel_weights_rgb']
             if channel_rgb.numel() > 0:
@@ -173,7 +173,7 @@ class Visualizer:
                 axes[0, 1].set_xlabel('Channel')
                 axes[0, 1].set_ylabel('Weight')
 
-        # 通道注意力权重（Thermal）
+        # channelnoteabilityweight（Thermal）
         if 'channel_weights_thermal' in attention_weights:
             channel_thermal = attention_weights['channel_weights_thermal']
             if channel_thermal.numel() > 0:
@@ -182,7 +182,7 @@ class Visualizer:
                 axes[1, 0].set_xlabel('Channel')
                 axes[1, 0].set_ylabel('Weight')
 
-        # 训练损失曲线
+        # traininglosscurveline
         axes[1, 1].axis('off')
 
         plt.tight_layout()
@@ -193,15 +193,15 @@ class Visualizer:
                                stage1_detections: List[Dict],
                                enhanced_detections: List[Dict],
                                risk_assessment: Dict) -> plt.Figure:
-        """创建对比图：显示三个阶段的结果"""
+        """createcomparisonimage：showthreeastageofresult"""
         fig, axes = plt.subplots(2, 2, figsize=(16, 12))
 
-        # 原始图像
+        # originalimage
         axes[0, 0].imshow(original_image)
         axes[0, 0].set_title("Original Image")
         axes[0, 0].axis('off')
 
-        # 第一阶段检测结果
+        # firststagedetectionresult
         axes[0, 1].imshow(original_image)
         for det in stage1_detections:
             bbox = det.get('bbox', [])
@@ -217,7 +217,7 @@ class Visualizer:
         axes[0, 1].set_title("Stage 1: YOLO Detections")
         axes[0, 1].axis('off')
 
-        # 第二阶段增强结果
+        # secondstageenhanceresult
         axes[1, 0].imshow(original_image)
         for det in enhanced_detections:
             bbox = det.get('enhanced_bbox', det.get('bbox', []))
@@ -233,7 +233,7 @@ class Visualizer:
         axes[1, 0].set_title("Stage 2: GNN Enhanced")
         axes[1, 0].axis('off')
 
-        # 第三阶段风险评估
+        # thethreestageriskevaluation
         self._plot_risk_summary(axes[1, 1], risk_assessment)
         axes[1, 1].set_title("Stage 3: Risk Assessment")
 
@@ -241,36 +241,36 @@ class Visualizer:
         return fig
 
     def _plot_risk_summary(self, ax, risk_assessment: Dict):
-        """绘制风险总结"""
+        """drawrisktotal结"""
         ax.axis('off')
 
         overall_risk = risk_assessment.get('overall_risk', 0.0)
         risk_level = self._get_risk_level(overall_risk)
         color = self.risk_colors.get(risk_level, 'gray')
 
-        # 总体风险
+        # totalbodyrisk
         ax.text(0.1, 0.9, f"Overall Risk: {overall_risk:.3f}",
                 color=color, fontsize=14, weight='bold', transform=ax.transAxes)
 
-        # 高风险目标
+        # highrisktarget
         high_risk_targets = [t for t in risk_assessment.get('target_risks', [])
                              if t['combined_risk'] > 0.6]
 
         ax.text(0.1, 0.8, f"High Risk Targets: {len(high_risk_targets)}",
                 fontsize=12, transform=ax.transAxes)
 
-        # 冲突对数量
+        # conflict paircountamount
         conflict_pairs = risk_assessment.get('conflict_pairs', [])
         high_risk_conflicts = [c for c in conflict_pairs if c['conflict_risk'] > 0.6]
 
         ax.text(0.1, 0.7, f"High Risk Conflicts: {len(high_risk_conflicts)}",
                 fontsize=12, transform=ax.transAxes)
 
-        # 预警信息
+        # predict/prealertinformation
         warnings = risk_assessment.get('warnings', [])
         if warnings:
             ax.text(0.1, 0.6, f"Warnings: {len(warnings)}",
                     color='red', fontsize=12, weight='bold', transform=ax.transAxes)
-            for i, warning in enumerate(warnings[:3]):  # 显示前3个警告
+            for i, warning in enumerate(warnings[:3]):  # showfirst3awarning
                 ax.text(0.15, 0.5 - i * 0.08, f"• {warning}",
                         color='red', fontsize=10, transform=ax.transAxes)

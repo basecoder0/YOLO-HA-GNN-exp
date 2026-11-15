@@ -1,4 +1,4 @@
-# testing/test.py - 完全修复版
+# testing/test.py - completelyfixversion
 
 import torch
 import yaml
@@ -9,27 +9,27 @@ import os
 import json
 import time
 
-# 添加项目根目录到路径
+# addprojectrootdirectorytopath
 sys.path.append(str(Path(__file__).parent.parent))
 
 from models.full_pipeline import YOLOGNNFusion
 
 
-# ========== 定义必要的工具函数 ==========
+# ========== define义mustneedofutility functions ==========
 
 def setup_device():
-    """统一的设备设置函数"""
+    """countoneofdevicesetfunction"""
     if torch.cuda.is_available():
         device = torch.device('cuda')
-        print(f"使用 GPU: {torch.cuda.get_device_name(0)}")
+        print(f"using GPU: {torch.cuda.get_device_name(0)}")
     else:
         device = torch.device('cpu')
-        print("使用 CPU")
+        print("using CPU")
     return device
 
 
 def get_data_root():
-    """获取统一的数据根目录"""
+    """getcountoneofdatarootdirectory"""
     possible_paths = [
         'D:/BaiduNetdiskDownload/16356714/R-LiViT',
         'D:/BaiduNetdiskDownload/R-LiViT/R-LiViT',
@@ -39,22 +39,22 @@ def get_data_root():
 
     for path in possible_paths:
         if os.path.exists(path):
-            print(f"✅ 使用数据路径: {path}")
+            print(f"✅ usingdatapath: {path}")
             return path
 
     return possible_paths[0]
 
 
 def safe_load_checkpoint(model, checkpoint_path, device):
-    """安全加载检查点，兼容不同格式"""
-    print(f"加载检查点: {checkpoint_path}")
+    """safety/fullloadingcheckpoint，compatiblenotsameformat"""
+    print(f"loadingcheckpoint: {checkpoint_path}")
 
     try:
         if os.path.exists(checkpoint_path):
-            # 加载检查点
+            # loadcheckpoint
             checkpoint = torch.load(checkpoint_path, map_location=device, weights_only=False)
 
-            # 提取模型状态
+            # extractmodelstatus
             if 'model_state_dict' in checkpoint:
                 state_dict = checkpoint['model_state_dict']
                 epoch = checkpoint.get('epoch', 0)
@@ -64,19 +64,19 @@ def safe_load_checkpoint(model, checkpoint_path, device):
                 epoch = 0
                 best_metric = 0.0
 
-            # 加载模型参数
+            # loadmodelparameter
             model_dict = model.state_dict()
 
-            # 过滤不匹配的键
+            # filter mismatched keys
             filtered_state_dict = {}
             for key, param in state_dict.items():
                 if key in model_dict:
                     if param.shape == model_dict[key].shape:
                         filtered_state_dict[key] = param
                     else:
-                        print(f"⚠️ 形状不匹配: {key} - {param.shape} vs {model_dict[key].shape}")
+                        print(f"⚠️ shapenotmatch: {key} - {param.shape} vs {model_dict[key].shape}")
                 else:
-                    # 尝试查找相似的键
+                    # trycheckfindmutual似ofkey
                     found = False
                     for model_key in model_dict.keys():
                         if key.replace('module.', '') == model_key.replace('module.', ''):
@@ -86,24 +86,24 @@ def safe_load_checkpoint(model, checkpoint_path, device):
                                 break
 
                     if not found:
-                        print(f"⚠️ 未找到对应键: {key}")
+                        print(f"⚠️ notfindtocorrespondingkey: {key}")
 
-            # 加载参数
+            # loadparameter
             model_dict.update(filtered_state_dict)
             model.load_state_dict(model_dict, strict=False)
 
-            print(f"✅ 成功加载检查点")
-            print(f"   加载参数: {len(filtered_state_dict)}/{len(model_dict)}")
-            print(f"   训练轮次: {epoch}")
+            print(f"✅ successloadingcheckpoint")
+            print(f"   loadingparameter: {len(filtered_state_dict)}/{len(model_dict)}")
+            print(f"   trainingepoch: {epoch}")
 
             return model, epoch, best_metric
 
         else:
-            print(f"❌ 检查点不存在: {checkpoint_path}")
+            print(f"❌ checkpointnotexist: {checkpoint_path}")
             return model, 0, 0.0
 
     except Exception as e:
-        print(f"❌ 加载检查点失败: {e}")
+        print(f"❌ loadingcheckpointfailed: {e}")
         import traceback
         traceback.print_exc()
         return model, 0, 0.0
@@ -111,14 +111,14 @@ def safe_load_checkpoint(model, checkpoint_path, device):
 
 def simple_collate_fn(batch):
     """
-    简单的collate函数，处理R-LiViT数据集
+    simpleofcollatefunction，processingR-LiViTdataset
     """
     if not batch:
         return {}
 
     collated = {}
 
-    # 处理RGB图像
+    # processingRGBimage
     rgb_images = []
     thermal_images = []
     targets = []
@@ -126,42 +126,42 @@ def simple_collate_fn(batch):
 
     for item in batch:
         if isinstance(item, dict):
-            # 提取RGB
+            # extractRGB
             if 'rgb' in item:
                 rgb_images.append(item['rgb'])
             elif 'image' in item:
                 rgb_images.append(item['image'])
 
-            # 提取热成像
+            # extractthermalimaging
             if 'thermal' in item:
                 thermal_images.append(item['thermal'])
 
-            # 提取目标
+            # extracttarget
             if 'target' in item:
                 targets.append(item['target'])
             elif 'annotations' in item:
                 targets.append(item['annotations'])
 
-            # 提取图像路径
+            # extractimagepath
             if 'image_path' in item:
                 image_paths.append(item['image_path'])
 
-    # 堆叠图像
+    # 堆叠image
     if rgb_images:
         collated['rgb'] = torch.stack(rgb_images, dim=0)
 
-        # 处理热成像
+        # processingthermalimaging
         if thermal_images and len(thermal_images) == len(rgb_images):
             collated['thermal'] = torch.stack(thermal_images, dim=0)
         else:
-            # 创建占位符
+            # createoccupydigitsymbol
             collated['thermal'] = torch.zeros_like(collated['rgb'])
 
-    # 目标保持列表格式
+    # targetkeeplistformat
     if targets:
         collated['targets'] = targets
 
-    # 图像路径
+    # imagepath
     if image_paths:
         collated['image_paths'] = image_paths
 
@@ -169,50 +169,50 @@ def simple_collate_fn(batch):
 
 
 def parse_args():
-    """解析命令行参数"""
-    parser = argparse.ArgumentParser(description='测试YOLO-GNN融合模型')
+    """parsecommandlineparameter"""
+    parser = argparse.ArgumentParser(description='testYOLO-GNNfusionmodel')
 
     parser.add_argument('--config', type=str, default='configs/test/evaluation.yaml',
-                        help='测试配置文件路径')
+                        help='testconfigurationfilepath')
     parser.add_argument('--checkpoint', type=str, required=True,
-                        help='模型检查点路径')
+                        help='modelcheckpointpath')
     parser.add_argument('--data_root', type=str, default=None,
-                        help='数据集根目录（默认自动检测）')
+                        help='dataset root directory（defaultautodetection）')
     parser.add_argument('--split', type=str, default='test',
                         choices=['train', 'val', 'test'],
-                        help='要评估的数据集划分')
+                        help='needevaluationofdatasetsplit/divide')
     parser.add_argument('--device', type=str, default='auto',
-                        help='设备类型 (auto/cuda/cpu)')
+                        help='deviceclasstype (auto/cuda/cpu)')
     parser.add_argument('--batch_size', type=int, default=1,
-                        help='批次大小（建议为1以确保兼容性）')
+                        help='batchminorlargesmall（recommendfor/as1by/withmake surecompatibleproperty）')
     parser.add_argument('--num_workers', type=int, default=0,
-                        help='数据加载工作进程数（0确保兼容性）')
+                        help='data loadingworker processcount（0make surecompatibleproperty）')
     parser.add_argument('--output_dir', type=str, default='results/test_output',
-                        help='输出目录')
+                        help='outputdirectory')
     parser.add_argument('--no_risk_assessment', action='store_true',
-                        help='禁用风险评估（与extract_stage1_features.py保持一致）')
+                        help='disableuseriskevaluation（andextract_stage1_features.pykeeponeconsistent）')
     parser.add_argument('--max_batches', type=int, default=10,
-                        help='最大处理批次数量（用于快速测试）')
+                        help='maximumprocessingbatchminorcountamount（forfasttest）')
 
     return parser.parse_args()
 
 
 def load_config(config_path):
-    """加载配置文件"""
+    """loadingconfigurationfile"""
     if os.path.exists(config_path):
         with open(config_path, 'r', encoding='utf-8') as f:
             config = yaml.safe_load(f)
         return config
     else:
-        print(f"⚠️ 配置文件不存在: {config_path}")
+        print(f"⚠️ configurationfilenotexist: {config_path}")
         return {}
 
 
 def create_model(args, config, device):
-    """创建模型 - 与extract_stage1_features.py保持一致"""
-    print("创建模型...")
+    """createmodel - andextract_stage1_features.pykeeponeconsistent"""
+    print("createmodel...")
 
-    # 从配置或使用默认值
+    # fromconfigurationorusingdefaultvalue
     model_config = config.get('model', {})
 
     model = YOLOGNNFusion(
@@ -232,49 +232,49 @@ def create_model(args, config, device):
 
 
 def create_simple_dataset(data_root, split):
-    """创建简单的数据集（不使用复杂的RLiViTDataset）"""
-    print(f"创建简单数据集用于{split}划分...")
+    """createsimpleofdataset（notusingcomplexofRLiViTDataset）"""
+    print(f"createsimpledatasetfor{split}split/divide...")
 
     samples = []
     data_path = Path(data_root)
 
-    # 查找RGB图像
+    # checkfindRGBimage
     rgb_base = data_path / "R-LiViT_RGB-T" / "rgb"
     if rgb_base.exists():
-        # 限制样本数量用于测试
-        max_sequences = 2
-        max_images_per_sequence = 2
+        # limitsamplecountamountfortest
+        max_sequenceuenceuences = 2
+        max_images_per_sequenceuenceuence = 2
 
-        seq_count = 0
-        for seq_dir in sorted(rgb_base.iterdir()):
-            if seq_dir.is_dir():
+        sequenceuence_count = 0
+        for sequenceuence_dir in sorted(rgb_base.iterdir()):
+            if sequenceuence_dir.is_dir():
                 img_count = 0
-                for img_file in sorted(seq_dir.glob("*.png")):
-                    if img_count >= max_images_per_sequence:
+                for img_file in sorted(sequenceuence_dir.glob("*.png")):
+                    if img_count >= max_images_per_sequenceuenceuence:
                         break
 
-                    # 查找对应的热成像
-                    thermal_path = data_path / "R-LiViT_RGB-T" / "thermal" / seq_dir.name / img_file.name
+                    # checkfindcorrespondingofthermalimaging
+                    thermal_path = data_path / "R-LiViT_RGB-T" / "thermal" / sequenceuence_dir.name / img_file.name
 
                     sample = {
                         'image_path': str(img_file),
                         'thermal_path': str(thermal_path) if thermal_path.exists() else None,
-                        'sequence': seq_dir.name,
+                        'sequenceuenceuence': sequenceuence_dir.name,
                         'image_name': img_file.stem
                     }
                     samples.append(sample)
                     img_count += 1
 
-                seq_count += 1
-                if seq_count >= max_sequences:
+                sequenceuence_count += 1
+                if sequenceuence_count >= max_sequenceuenceuences:
                     break
 
-    print(f"找到 {len(samples)} 个样本")
+    print(f"findto {len(samples)} asample")
     return samples
 
 
 class SimpleDataset(torch.utils.data.Dataset):
-    """简单数据集类"""
+    """simpledatasetclass"""
 
     def __init__(self, samples):
         self.samples = samples
@@ -288,19 +288,19 @@ class SimpleDataset(torch.utils.data.Dataset):
 
         sample = self.samples[idx]
 
-        # 加载RGB图像
+        # loadRGBimage
         rgb_path = sample['image_path']
         rgb_img = cv2.imread(rgb_path)
         if rgb_img is None:
-            print(f"❌ 无法加载图像: {rgb_path}")
+            print(f"❌ unable toloadingimage: {rgb_path}")
             rgb_img = np.zeros((416, 416, 3), dtype=np.uint8)
 
-        # 调整大小
+        # adjustmentlargesmall
         rgb_img = cv2.resize(rgb_img, (416, 416))
         rgb_img = cv2.cvtColor(rgb_img, cv2.COLOR_BGR2RGB)
         rgb_tensor = torch.from_numpy(rgb_img).float().permute(2, 0, 1) / 255.0
 
-        # 加载热成像
+        # loadthermalimaging
         thermal_path = sample.get('thermal_path')
         if thermal_path and os.path.exists(thermal_path):
             thermal_img = cv2.imread(thermal_path, cv2.IMREAD_GRAYSCALE)
@@ -322,8 +322,8 @@ class SimpleDataset(torch.utils.data.Dataset):
 
 
 def run_evaluation(model, dataloader, device, args):
-    """运行评估"""
-    print(f"\n开始评估...")
+    """runevaluation"""
+    print(f"\nstartevaluation...")
 
     model.eval()
     all_results = []
@@ -331,25 +331,25 @@ def run_evaluation(model, dataloader, device, args):
     with torch.no_grad():
         for batch_idx, batch in enumerate(dataloader):
             if batch_idx >= args.max_batches:
-                print(f"  达到最大批次限制 ({args.max_batches})")
+                print(f"  达tomaximumbatchminorlimit ({args.max_batches})")
                 break
 
-            print(f"  处理批次 {batch_idx + 1}/{len(dataloader)}")
+            print(f"  processingbatchminor {batch_idx + 1}/{len(dataloader)}")
 
-            # 提取图像数据
+            # extractimagedata
             if 'rgb' in batch:
                 rgb_images = batch['rgb'].to(device)
                 thermal_images = batch['thermal'].to(device)
                 image_paths = batch.get('image_paths', [])
             else:
-                print(f"⚠️ 批次中没有RGB图像数据")
+                print(f"⚠️ batchminorinnothaveRGBimagedata")
                 continue
 
-            # 前向传播
+            # forward propagation
             try:
                 outputs = model(rgb_images, thermal_images)
 
-                # 收集结果
+                # collectresult
                 batch_result = {
                     'batch_idx': batch_idx,
                     'num_images': len(rgb_images),
@@ -361,19 +361,19 @@ def run_evaluation(model, dataloader, device, args):
                 }
                 all_results.append(batch_result)
 
-                print(f"    图像数量: {batch_result['num_images']}")
-                print(f"    第一阶段检测: {batch_result['stage1_detections']}")
-                print(f"    增强检测: {batch_result['enhanced_detections']}")
+                print(f"    imagecountamount: {batch_result['num_images']}")
+                print(f"    firststagedetection: {batch_result['stage1_detections']}")
+                print(f"    enhancedetection: {batch_result['enhanced_detections']}")
 
-                # 显示一些检测详情
+                # showonesomedetection详situation
                 if outputs.get('stage1_detections'):
                     detections = outputs['stage1_detections']
                     if len(detections) > 0:
                         print(
-                            f"    检测置信度范围: {min(d.get('confidence', 0) for d in detections):.3f}-{max(d.get('confidence', 0) for d in detections):.3f}")
+                            f"    detectionconfidencerange: {min(d.get('confidence', 0) for d in detections):.3f}-{max(d.get('confidence', 0) for d in detections):.3f}")
 
             except Exception as e:
-                print(f"❌ 批次 {batch_idx} 处理失败: {e}")
+                print(f"❌ batchminor {batch_idx} processingfailed: {e}")
                 import traceback
                 traceback.print_exc()
                 continue
@@ -382,40 +382,40 @@ def run_evaluation(model, dataloader, device, args):
 
 
 def main():
-    """主测试函数"""
+    """majortestfunction"""
     args = parse_args()
 
     print("=" * 60)
-    print("YOLO-GNN 融合模型测试")
+    print("YOLO-GNN fusionmodeltest")
     print("=" * 60)
 
-    # 设置设备
+    # setdevice
     device = setup_device()
 
-    # 获取数据路径
+    # getdatapath
     data_root = args.data_root if args.data_root else get_data_root()
-    print(f"数据根目录: {data_root}")
+    print(f"datarootdirectory: {data_root}")
 
-    # 检查路径是否存在
+    # checkpathwhetherexist
     if not os.path.exists(data_root):
-        print(f"❌ 数据根目录不存在: {data_root}")
-        print("请检查数据路径或使用 --data_root 参数指定正确路径")
+        print(f"❌ datarootdirectorynotexist: {data_root}")
+        print("pleasecheckdatapathorusing --data_root parameterpointdefinepositivesurepath")
         return
 
-    # 加载配置
+    # loadconfiguration
     config = load_config(args.config)
 
-    # 创建模型
+    # createmodel
     model = create_model(args, config, device)
 
-    # 加载检查点
+    # loadcheckpoint
     model, epoch, best_metric = safe_load_checkpoint(model, args.checkpoint, device)
 
-    # 创建简单的数据集和数据加载器
+    # createsimpleofdatasetanddataloaddevice
     samples = create_simple_dataset(data_root, args.split)
 
     if not samples:
-        print("❌ 没有找到样本数据")
+        print("❌ nothavefindtosampledata")
         return
 
     dataset = SimpleDataset(samples)
@@ -428,36 +428,36 @@ def main():
         pin_memory=False
     )
 
-    print(f"数据集大小: {len(dataset)}")
-    print(f"数据加载器批次数量: {len(dataloader)}")
+    print(f"datasetlargesmall: {len(dataset)}")
+    print(f"data loadingdevicebatchminorcountamount: {len(dataloader)}")
 
-    # 运行评估
+    # runevaluation
     results = run_evaluation(model, dataloader, device, args)
 
-    # 输出总结
+    # outputtotal结
     print("\n" + "=" * 60)
-    print("测试完成!")
-    print(f"模型检查点: {args.checkpoint}")
-    print(f"训练轮次: {epoch}")
-    print(f"最佳指标: {best_metric:.4f}")
-    print(f"处理批次: {len(results)}")
+    print("testcompleted!")
+    print(f"modelcheckpoint: {args.checkpoint}")
+    print(f"trainingepoch: {epoch}")
+    print(f"bestmetric: {best_metric:.4f}")
+    print(f"processingbatchminor: {len(results)}")
 
     if results:
         total_images = sum(r['num_images'] for r in results)
         total_stage1 = sum(r['stage1_detections'] for r in results)
         total_enhanced = sum(r['enhanced_detections'] for r in results)
 
-        print(f"总处理图像: {total_images}")
-        print(f"第一阶段总检测数: {total_stage1}")
-        print(f"增强后总检测数: {total_enhanced}")
+        print(f"totalprocessingimage: {total_images}")
+        print(f"firststagetotaldetectioncount: {total_stage1}")
+        print(f"enhanceaftertotaldetectioncount: {total_enhanced}")
 
         if total_images > 0:
-            print(f"平均每图像检测数: {total_stage1 / total_images:.2f}")
-            print(f"检测率: {total_stage1 / (total_images * 10):.2%}")
+            print(f"averageeachimagedetectioncount: {total_stage1 / total_images:.2f}")
+            print(f"detectionrate: {total_stage1 / (total_images * 10):.2%}")
 
     print("=" * 60)
 
-    # 保存结果
+    # saveresult
     output_dir = Path(args.output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
 
@@ -479,7 +479,7 @@ def main():
             'timestamp': time.strftime("%Y-%m-%d %H:%M:%S")
         }, f, indent=2)
 
-    print(f"结果保存到: {result_file}")
+    print(f"resultsaveto: {result_file}")
 
     return results
 

@@ -8,53 +8,53 @@ from models.yolo.yolo_with_fusion import YOLOWithFusion
 
 
 def check_weights():
-    print("🔍 正在检查预训练权重加载情况...")
+    print("🔍 positiveat/incheckpredict/pretrainingweightloadingsituationsituation...")
 
-    # 1. 加载官方 yolov8n.pt (作为参考)
+    # 1. loadofficial yolov8n.pt (asparameterrefer)
     yolo_pt = torch.load('weights/yolov8n.pt', map_location='cpu', weights_only=False)
     yolo_dict = yolo_pt['model'].float().state_dict() if 'model' in yolo_pt else yolo_pt
 
-    # 获取官方第一层卷积的权重 (model.0.conv.weight)
-    # YOLOv8n 的第一个模块通常是 Conv
+    # getofficialfirstlayerconvolutionofweight (model.0.conv.weight)
+    # YOLOv8n the first module is usually Conv
     ref_key = 'model.0.conv.weight'
     if ref_key not in yolo_dict:
-        # 尝试找一个存在的 key
+        # tryfindoneaexistof key
         ref_key = list(yolo_dict.keys())[0]
 
     ref_weight = yolo_dict[ref_key]
-    print(f"✅ 官方权重 {ref_key} 均值: {ref_weight.mean().item():.6f}")
+    print(f"✅ officialweight {ref_key} mean: {ref_weight.mean().item():.6f}")
 
-    # 2. 初始化我们的融合模型
+    # 2. initializationouroffusionmodel
     config_path = 'configs/train/stage1.yaml'
     with open(config_path, 'r', encoding='utf-8') as f:
         cfg = yaml.safe_load(f)
 
     model = YOLOWithFusion(model_path='weights/yolov8n.pt', num_classes=cfg['model']['num_classes'])
 
-    # 3. 检查 RGB 主干是否继承了权重
-    # 假设模型结构里有 backbone_rgb 或 similar
-    # 我们遍历 model.named_parameters() 找看起来像 backbone 的层
+    # 3. check RGB majordrywhether继承past tense markerweight
+    # assumemodelstructureinhave backbone_rgb or similar
+    # ourtraverse model.named_parameters() findlookslike backbone oflayer
 
-    print("\n🔍 分析当前模型权重状态...")
+    print("\n🔍 analysiswhenfirstmodelweightstatus...")
 
     rgb_backbone_loaded = False
     thermal_backbone_loaded = False
 
-    # 这里的名字取决于 YOLOWithFusion 的具体实现
-    # 通常是 self.backbone (如果只是单流) 或者 self.rgb_backbone / self.thermal_backbone
+    # hereofnameget决for YOLOWithFusion ofspecificimplement
+    # usuallyis self.backbone (ifonlyissingle流) orone self.rgb_backbone / self.thermal_backbone
 
     model_state = model.state_dict()
 
-    # 寻找对应官方 ref_key 的层
-    # 在 YOLOWithFusion 中，官方的 model.0 可能对应 model.rgb_stream.0 或者 model.backbone.0
+    # searchfindcorrespondingofficial ref_key oflayer
+    # at/in YOLOWithFusion in，officialof model.0 maycorresponding model.rgb_stream.0 orone model.backbone.0
 
     matched_keys = []
     for k, v in model_state.items():
-        if '0.conv.weight' in k and 'backbone' in k:  # 粗略匹配第一层
+        if '0.conv.weight' in k and 'backbone' in k:  # roughly match the first layer
             matched_keys.append(k)
 
     if not matched_keys:
-        print("⚠️ 无法自动定位主干网络的第一层，将打印前 5 个层名供人工核对：")
+        print("⚠️ unable toautolocatemajordrynetworknetworkoffirstlayer，willprintfirst 5 layer names for manual verification：")
         for k in list(model_state.keys())[:5]:
             print(f"   {k}")
 
@@ -62,19 +62,19 @@ def check_weights():
         current_weight = model_state[k]
         diff = torch.abs(current_weight - ref_weight).sum().item()
 
-        # 如果权重完全一样 (Diff = 0)，说明加载成功但还没训练
-        # 如果权重完全不同 (Diff 很大且看起来像随机分布)，说明加载失败，是随机初始化的
-        # 如果权重接近但不为0，说明加载成功且经过了微调 (但在初始化阶段应该是一样的)
+        # ifweightcompletelyonesample (Diff = 0)，saybrightloadsuccessbutstillnottraining
+        # ifweightcompletelynotsame (Diff large and looks like randomdistribution)，saybrightloadfailed，israndominitializationof
+        # ifweightconnectclosebutnotfor/as0，saybrightloadsuccessand经toopast tense marker微adjust (butat/ininitializationstage should be the same)
 
-        # 此时我们是在检查 "初始化后" 的状态，理论上应该完全一致
+        # thiswhenourisat/incheck "initializationafter" ofstatus，manage论aboveshouldcompletelyoneconsistent
 
-        print(f"   层: {k}")
-        print(f"   与官方权重差异: {diff:.6f}")
+        print(f"   layer: {k}")
+        print(f"   andofficialweightdifference异: {diff:.6f}")
 
         if diff < 1e-5:
-            print("   ✅ 判定: 权重加载成功！")
+            print("   ✅ 判define: weightloadingsuccess！")
         else:
-            print("   ❌ 判定: 权重不匹配！可能是随机初始化。")
+            print("   ❌ 判define: weightnotmatch！mayisrandominitialization。")
 
 
 if __name__ == '__main__':

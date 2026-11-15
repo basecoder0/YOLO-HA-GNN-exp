@@ -9,7 +9,7 @@ from pathlib import Path
 from tqdm import tqdm
 from torchvision.ops import roi_align
 
-# 自动定位项目根目录
+# auto locate project rootdirectory
 current_file_path = os.path.abspath(__file__)
 project_root = os.path.dirname(current_file_path)
 sys.path.append(project_root)
@@ -17,14 +17,14 @@ sys.path.append(project_root)
 from models.full_pipeline import YOLOGNNFusion
 from utils.device_utils import setup_device
 
-# ================= 🔧 配置区域 =================
+# ================= 🔧 configuration area =================
 BDD_ROOT = r"D:\BaiduNetdiskDownload\BDD100K"
-IMG_DIR = os.path.join(BDD_ROOT, "b_car", "images", "val")  # 读取验证集
-OUTPUT_DIR = Path("stage2_gnn_dataset_bdd100k_val")  # 输出特征的文件夹
+IMG_DIR = os.path.join(BDD_ROOT, "b_car", "images", "val")  # readverifycollect
+OUTPUT_DIR = Path("stage2_gnn_dataset_bdd100k_val")  # outputfeatureoffolder
 
-# Stage 1 权重 (用于提取特征)
+# Stage 1 weight (forextractfeature)
 CHECKPOINT_S1 = "runs/stage1_rlivit_highres_8cls/best.pt"
-# 如果 best 不存在，尝试 last
+# if best notexist，try last
 if not os.path.exists(CHECKPOINT_S1):
     CHECKPOINT_S1 = "runs/stage1_rlivit_highres_8cls/last.pt"
 
@@ -52,19 +52,19 @@ class BDDFeatureExtractor:
         self.output_dir = OUTPUT_DIR
         self.output_dir.mkdir(exist_ok=True)
 
-        print("🔧 加载 Stage 1 模型 (用于特征提取)...")
-        # 初始化模型架构
+        print("🔧 loading Stage 1 model (forfeatureextract)...")
+        # initializationmodelframeworkconstruct
         try:
             self.model = YOLOGNNFusion(num_classes=8, confidence_threshold=0.01, nms_threshold=0.6,
                                        model_path='weights/yolov8s.pt').to(self.device)
         except TypeError:
             self.model = YOLOGNNFusion(num_classes=8, confidence_threshold=0.01, nms_threshold=0.6).to(self.device)
 
-        # 加载训练好的权重
+        # loadtraininggoodofweight
         if not os.path.exists(CHECKPOINT_S1):
-            raise FileNotFoundError(f"❌ 找不到权重文件 {CHECKPOINT_S1}")
+            raise FileNotFoundError(f"❌ findnottoweightfile {CHECKPOINT_S1}")
 
-        print(f"📦 加载权重: {CHECKPOINT_S1}")
+        print(f"📦 loadingweight: {CHECKPOINT_S1}")
         checkpoint = torch.load(CHECKPOINT_S1, map_location=self.device)
         state_dict = checkpoint['model_state_dict'] if 'model_state_dict' in checkpoint else checkpoint
         model_dict = self.model.state_dict()
@@ -73,10 +73,10 @@ class BDDFeatureExtractor:
         self.model.eval()
 
         self.features_buffer = {}
-        self._find_feature_layers()  # 注册钩子获取中间层特征
+        self._find_feature_layers()  # notevolumehookelementgetinspacelayerfeature
 
     def _find_feature_layers(self):
-        print("\n🔍 --- 动态层级搜索 (P3, P4, P5) ---")
+        print("\n🔍 --- motionstatelayerlevelsearch (P3, P4, P5) ---")
         temp_hooks = []
         neck = self.model.yolo_fusion.neck_layers
 
@@ -88,7 +88,7 @@ class BDDFeatureExtractor:
         for i, layer in enumerate(neck):
             temp_hooks.append(layer.register_forward_hook(get_shape_hook(i)))
 
-        # 跑一次假数据来确定层索引
+        # runoneminortemporarydatatosuredefinelayerindex
         dummy_rgb = torch.zeros(1, 3, 1280, 1280).to(self.device)
         dummy_thm = torch.zeros(1, 3, 1280, 1280).to(self.device)
         with torch.no_grad():
@@ -108,9 +108,9 @@ class BDDFeatureExtractor:
         self.features_buffer = {}
 
         if found_p3 is None or found_p4 is None or found_p5 is None:
-            raise RuntimeError("❌ 无法自动定位 P3/P4/P5 特征层！")
+            raise RuntimeError("❌ unable toautolocate P3/P4/P5 featurelayer！")
 
-        print(f"✅ 锁定特征层: P3({found_p3}), P4({found_p4}), P5({found_p5})")
+        print(f"✅ lockdefinefeaturelayer: P3({found_p3}), P4({found_p4}), P5({found_p5})")
 
         def get_activation(name):
             def hook(model, input, output): self.features_buffer[name] = output
@@ -139,42 +139,42 @@ class BDDFeatureExtractor:
 
     def process_bdd(self):
         target_size = 1280
-        # 获取所有图片
+        # getallimagepiece
         img_files = sorted(glob.glob(os.path.join(IMG_DIR, "*.jpg")))
 
         if len(img_files) == 0:
-            print(f"❌ 错误: 在 {IMG_DIR} 下没有找到 .jpg 图片！")
+            print(f"❌ error: at/in {IMG_DIR} belownothavefindto .jpg imagepiece！")
             return
 
-        print(f"\n🚀 开始处理 BDD100K 验证集 (共 {len(img_files)} 张)...")
+        print(f"\n🚀 startprocessing BDD100K validationcollect (total {len(img_files)} tensor)...")
 
-        sample_list = []  # 用于生成 json 索引
+        sample_list = []  # forgenerate json index
 
         for img_path in tqdm(img_files, desc="Extracting Features"):
             file_name = os.path.basename(img_path)
             stem = os.path.splitext(file_name)[0]  # e.g., b1c81faa-3df17267
 
-            # 检查是否已存在，避免重复跑
+            # checkwhetheralreadyexist，avoidweightcomplexrun
             save_path = self.output_dir / f"{stem}.pt"
             if save_path.exists():
                 sample_list.append({'id': stem, 'path': str(save_path)})
                 continue
 
-            # 1. 读取 RGB
+            # 1. read RGB
             img_bgr = cv2.imread(img_path)
             if img_bgr is None: continue
             img_rgb = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2RGB)
 
-            # 2. 伪造 Thermal (转灰度)
-            # 因为 Stage1 模型需要双流输入，但 BDD 只有 RGB
+            # 2. pseudocreate Thermal (convertgraydegree)
+            # becausefor/as Stage1 modelneeddual streaminput，but BDD onlyhave RGB
             img_gray = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2GRAY)
-            img_thm = cv2.merge([img_gray, img_gray, img_gray])  # 3通道灰度图
+            img_thm = cv2.merge([img_gray, img_gray, img_gray])  # 3channelgraydegreeimage
 
             # 3. Letterbox Resize
             img_rgb, _, _ = letterbox(img_rgb, (target_size, target_size))
             img_thm, _, _ = letterbox(img_thm, (target_size, target_size))
 
-            # 4. 转 Tensor
+            # 4. convert Tensor
             t_rgb = torch.from_numpy(img_rgb).float().permute(2, 0, 1).unsqueeze(0).to(self.device) / 255.0
             t_thm = torch.from_numpy(img_thm).float().permute(2, 0, 1).unsqueeze(0).to(self.device) / 255.0
 
@@ -184,20 +184,20 @@ class BDDFeatureExtractor:
                     outputs = self.model(t_rgb, t_thm)
                     pred_boxes = outputs['detections']
 
-                    # 确保提取到了特征层
+                    # make sureextracttopast tense markerfeaturelayer
                     if not all(k in self.features_buffer for k in ['p3', 'p4', 'p5']): continue
 
-                # 如果没有检测到物体，跳过
+                # ifnothavedetectiontoobjectbody，skip
                 if pred_boxes is None or len(pred_boxes) == 0:
                     continue
 
                 boxes_xyxy = pred_boxes[:, :4]
                 scores = pred_boxes[:, 4:6]
 
-                # 5. GAP 特征提取
+                # 5. GAP featureextract
                 node_features = self.extract_roi_features_gap(self.features_buffer, boxes_xyxy)
 
-                # 6. 归一化坐标 (Norm XYWH)
+                # 6. normalizecoordinate (Norm XYWH)
                 norm_boxes = torch.zeros_like(boxes_xyxy)
                 norm_boxes[:, 0] = ((boxes_xyxy[:, 0] + boxes_xyxy[:, 2]) / 2) / target_size  # cx
                 norm_boxes[:, 1] = ((boxes_xyxy[:, 1] + boxes_xyxy[:, 3]) / 2) / target_size  # cy
@@ -218,17 +218,17 @@ class BDDFeatureExtractor:
                 # print(f"Error {stem}: {e}")
                 pass
 
-        # 生成索引文件，供后续可视化脚本使用
-        # 这里的 key 必须是 'test'，因为你的可视化脚本读取的是 samples
-        # 但为了不覆盖原有的 R-LiViT list，我们存为 stage2_bdd_val_list.json
+        # generateindexfile，foraftercontinuevisualizationscriptusing
+        # hereof key mustmustis 'test'，becausefor/asyouofvisualizationscriptreadofis samples
+        # but to not overwrite the original R-LiViT list，ourexistfor/as stage2_bdd_val_list.json
         with open(self.output_dir / "stage2_bdd_val_list.json", 'w') as f:
             json.dump(sample_list, f, indent=2)
 
-        print(f"\n✅ 特征提取完成！")
-        print(f"   - 保存路径: {self.output_dir}")
-        print(f"   - 列表文件: {self.output_dir / 'stage2_bdd_val_list.json'}")
+        print(f"\n✅ featureextractcompleted！")
+        print(f"   - savepath: {self.output_dir}")
+        print(f"   - listfile: {self.output_dir / 'stage2_bdd_val_list.json'}")
         if 'node_features' in locals():
-            print(f"   - 特征维度: {node_features.shape[1]}")
+            print(f"   - featuredimension: {node_features.shape[1]}")
 
 
 if __name__ == "__main__":

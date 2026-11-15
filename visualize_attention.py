@@ -11,7 +11,7 @@ from models.yolo.yolo_with_fusion import YOLOWithFusion
 from data.datasets.r_livit_dataset import RLiViTDataset
 from utils.device_utils import setup_device
 
-# ================= 配置 =================
+# ================= configuration =================
 OURS_S1 = r"D:\YOLO-GNN-Fusion\runs\stage1_rlivit_highres_8cls\best.pt"
 BASE_MODEL = r"D:\YOLO-GNN-Fusion\weights\yolov8s.pt"
 DATA_CFG = {'root_dir': "D:/BaiduNetdiskDownload/R-LiViT/R-LiViT", 'train_txt': "train.txt", 'test_txt': "test.txt",
@@ -31,24 +31,24 @@ class AttentionVisualizer:
         self.att_map = None
 
     def hook_fn(self, module, input, output):
-        # 假设输出是 Tensor，计算均值作为热力图
+        # assumeoutputis Tensor，calculationmeanasheatimage
         if isinstance(output, torch.Tensor):
             self.att_map = output.mean(dim=1, keepdim=True)
 
     def run(self):
-        # 🔥 自动搜索 Fusion 层
+        # 🔥 autosearch Fusion layer
         hooked = False
         print("🔍 Scanning model for fusion layers...")
         for name, module in self.model.named_modules():
-            # 关键词匹配：找名字里带 fusion 或 attention 的层
+            # criticalwordmatch：findnameinwith fusion or attention oflayer
             if "fusion" in name.lower() and isinstance(module, torch.nn.Conv2d):
                 print(f"✅ Hooking layer: {name}")
                 module.register_forward_hook(self.hook_fn)
                 hooked = True
-                break  # 只 Hook 第一个找到的
+                break  # only Hook firstafindtoof
 
         if not hooked:
-            print("⚠️ 未找到 Fusion 层，尝试 Hook Backbone 的最后一层...")
+            print("⚠️ notfindto Fusion layer，try Hook Backbone offinalonelayer...")
             # Fallback: Hook SPPF
             for name, module in self.model.named_modules():
                 if "sppf" in name.lower():

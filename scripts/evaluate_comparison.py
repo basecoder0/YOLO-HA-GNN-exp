@@ -10,7 +10,7 @@ from torchvision.models.detection import fasterrcnn_resnet50_fpn, FasterRCNN_Res
 from ultralytics import YOLO, RTDETR
 from torchvision.ops import roi_align
 
-# 添加项目根目录
+# addprojectrootdirectory
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(PROJECT_ROOT)
 
@@ -18,14 +18,14 @@ from data.datasets.r_livit_dataset import RLiViTDataset
 from utils.device_utils import setup_device
 from ultralytics.utils.ops import xywh2xyxy
 
-# 导入你的模型组件
+# importyouofmodelgroup件
 try:
     from models.yolo.yolo_with_fusion import YOLOWithFusion
     from models.gnn.hierarchical_gnn import HierarchicalGNN
 except ImportError:
-    print("❌ 无法导入项目模型，请检查路径设置")
+    print("❌ unable toimportprojectmodel，pleasecheckpathset")
 
-# ================= 🔧 配置区域 =================
+# ================= 🔧 configuration area =================
 DATA_CFG = {
     'root_dir': "D:/BaiduNetdiskDownload/R-LiViT/R-LiViT",
     'train_txt': "train.txt",
@@ -37,12 +37,12 @@ DATA_CFG = {
 
 WEIGHTS_DIR = os.path.join(PROJECT_ROOT, "weights", "comparison")
 OURS_S1 = r"D:\YOLO-GNN-Fusion\runs\stage1_rlivit_highres_8cls\best.pt"
-# 🔥 确认这是你的最佳权重
+# 🔥 confirmthisisyouofbestweight
 OURS_S2 = r"D:\YOLO-GNN-Fusion\runs\stage2_gnn_GAP_1280\epoch_50.pth"
 BASE_MODEL = r"D:\YOLO-GNN-Fusion\weights\yolov8s.pt"
 
 
-# ================= 📦 模型包装器 (统一接口) =================
+# ================= 📦 modelpackinstalldevice (countoneconnectmouth) =================
 
 class ModelWrapper:
     def __init__(self, name, device):
@@ -189,7 +189,7 @@ class OursWrapper(ModelWrapper):
             gap_feat = torch.cat([p3.mean([2, 3]), p4.mean([2, 3]), p5.mean([2, 3])], 1)
             gap_feat = torch.nn.functional.normalize(gap_feat, p=2, dim=1)
 
-            # 归一化 Boxes
+            # normalize Boxes
             norm_boxes = boxes.clone()
             norm_boxes[:, 0] = ((boxes[:, 0] + boxes[:, 2]) / 2) / 1280
             norm_boxes[:, 1] = ((boxes[:, 1] + boxes[:, 3]) / 2) / 1280
@@ -210,7 +210,7 @@ class OursWrapper(ModelWrapper):
                         cl = p_cl[i].item()
                         if cl == 0: cl = 1
 
-                        # 🔥🔥🔥 修复: 使用 int(idx) 而非 idx.item() 🔥🔥🔥
+                        # 🔥🔥🔥 fix: using int(idx) butnon idx.item() 🔥🔥🔥
                         raw_idx = int(idx)
 
                         b = boxes[raw_idx].cpu().tolist()
@@ -219,20 +219,20 @@ class OursWrapper(ModelWrapper):
         return torch.tensor(res) if res else torch.zeros((0, 6))
 
 
-# ================= 🏃 评测逻辑 =================
+# ================= 🏃 evaluate测logic =================
 
 def benchmark(models, loader, device):
     results = []
 
     for model_wrap in models:
-        print(f"\n🚀 正在评估: {model_wrap.name} ...")
+        print(f"\n🚀 positiveat/inevaluation: {model_wrap.name} ...")
 
-        # 1. 参数量
+        # 1. parameteramount
         params = model_wrap.get_params()
-        print(f"   📦 参数量: {params:.2f} M")
+        print(f"   📦 parameteramount: {params:.2f} M")
 
-        # 2. 测速 (FPS)
-        print("   ⏱️ 正在测速 (Warmup 20, Test 50)...")
+        # 2. speed measurement (FPS)
+        print("   ⏱️ positiveat/inspeed measurement (Warmup 20, Test 50)...")
         dummy_rgb = torch.rand(1, 3, 640, 640).to(device)
         dummy_rgb_1280 = torch.rand(1, 3, 1280, 1280).to(device)
         dummy_thm_1280 = torch.rand(1, 3, 1280, 1280).to(device)
@@ -253,17 +253,17 @@ def benchmark(models, loader, device):
         fps = 50 / (t_end - t_start)
         print(f"   ⚡ FPS: {fps:.2f}")
 
-        # 3. 精度 (占位，请根据之前实验填入真实值)
-        print("   🎯 正在计算精度 (Skip for fast demo)...")
+        # 3. 精degree (occupydigit，pleaserootfill in true values from previous experiments)
+        print("   🎯 positiveat/incalculation精degree (Skip for fast demo)...")
 
         if "Ours" in model_wrap.name:
-            metrics = {"Recall": 0.247, "mAP50": 0.223, "F1": 0.329}  # 填你的数据
+            metrics = {"Recall": 0.247, "mAP50": 0.223, "F1": 0.329}  # fillyouofdata
         elif "YOLOv8" in model_wrap.name:
-            metrics = {"Recall": 0.05, "mAP50": 0.04, "F1": 0.06}  # 占位
+            metrics = {"Recall": 0.05, "mAP50": 0.04, "F1": 0.06}  # occupydigit
         elif "Faster" in model_wrap.name:
-            metrics = {"Recall": 0.12, "mAP50": 0.15, "F1": 0.13}  # 占位
+            metrics = {"Recall": 0.12, "mAP50": 0.15, "F1": 0.13}  # occupydigit
         elif "RT-DETR" in model_wrap.name:
-            metrics = {"Recall": 0.14, "mAP50": 0.16, "F1": 0.15}  # 占位
+            metrics = {"Recall": 0.14, "mAP50": 0.16, "F1": 0.15}  # occupydigit
 
         results.append({
             "Method": model_wrap.name,
@@ -295,7 +295,7 @@ def main():
         models.append(OursWrapper("HA-GNN (Ours)", OURS_S1, OURS_S2, BASE_MODEL, device))
 
     df = benchmark(models, None, device)
-    print("\n🏆 最终综合对比实验结果:")
+    print("\n🏆 final comprehensive comparison experimentresult:")
     print(df.to_string(index=False))
     df.to_csv("comprehensive_results.csv", index=False)
 

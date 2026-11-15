@@ -9,12 +9,12 @@ import math
 
 class YOLOWithFusionAblation(nn.Module):
     """
-    [消融实验全能版] 双流 YOLOv8 融合模型
-    支持模式 (fusion_mode):
-        - 'rgb':    Baseline (仅使用 RGB，完全忽略 Thermal)
-        - 'add':    + Thermal (RGB + Thermal 简单相加)
-        - 'concat': + Thermal (RGB + Thermal 拼接)
-        - 'dpafm':  + DPAFM (自适应注意力融合，本方案核心)
+    [eliminate融experimentfullability/canversion] dual stream YOLOv8 fusionmodel
+    branchholdmode (fusion_mode):
+        - 'rgb':    Baseline (onlyusing RGB，completelyignore Thermal)
+        - 'add':    + Thermal (RGB + Thermal simplemutualadd)
+        - 'concat': + Thermal (RGB + Thermal combineconnect)
+        - 'dpafm':  + DPAFM (selfsuitableshouldnoteabilityfusion，bookmethod案core)
     """
 
     def __init__(self, model_path='weights/yolov8s.pt', num_classes=8, fusion_mode='dpafm'):
@@ -23,21 +23,21 @@ class YOLOWithFusionAblation(nn.Module):
         self.fusion_mode = fusion_mode
         print(f"🎛️ Ablation Mode: {self.fusion_mode}")
 
-        # 加载基础模型
+        # loadbasicmodel
         base_model = YOLO(model_path)
         m = base_model.model.model
 
-        # --- 1. 骨干网络 ---
-        # RGB 分支总是需要的
+        # --- 1. skeletondrynetworknetwork ---
+        # RGB branchtotalisneedof
         self.rgb_backbone = nn.ModuleList(copy.deepcopy(m[:10]))
 
-        # Thermal 分支：只有在非 RGB 模式下才初始化，节省显存
+        # Thermal branch：onlyhaveat/innon RGB modebelow才initialization，save省显exist
         if self.fusion_mode != 'rgb':
             self.thermal_backbone = nn.ModuleList(copy.deepcopy(m[:10]))
         else:
             self.thermal_backbone = None
 
-        # --- 自动检测通道数 ---
+        # --- autodetectionchannelcount ---
         try:
             ch_p3 = m[4].cv2.conv.out_channels
             ch_p4 = m[6].cv2.conv.out_channels
@@ -49,23 +49,23 @@ class YOLOWithFusionAblation(nn.Module):
 
         print(f"🔍 [Auto-Config] Detected Channels: P3={ch_p3}, P4={ch_p4}, P5={ch_p5}")
 
-        # --- 2. 融合模块 ---
+        # --- 2. fusionmodule ---
         if self.fusion_mode == 'dpafm':
             self.fusion_p3 = DPAFM(ch_p3)
             self.fusion_p4 = DPAFM(ch_p4)
             self.fusion_p5 = DPAFM(ch_p5)
         elif self.fusion_mode == 'concat':
-            # 拼接后降维 (2*C -> C)
+            # combineconnectafterreducedimension (2*C -> C)
             self.fusion_p3 = nn.Conv2d(ch_p3 * 2, ch_p3, 1, bias=False)
             self.fusion_p4 = nn.Conv2d(ch_p4 * 2, ch_p4, 1, bias=False)
             self.fusion_p5 = nn.Conv2d(ch_p5 * 2, ch_p5, 1, bias=False)
         else:
-            # 'rgb' 或 'add' 模式不需要参数化层
+            # 'rgb' or 'add' modenotneedparametertransformlayer
             self.fusion_p3 = nn.Identity()
             self.fusion_p4 = nn.Identity()
             self.fusion_p5 = nn.Identity()
 
-        # --- 3. 颈部网络 & 检测头 ---
+        # --- 3. 颈partnetworknetwork & detectionhead ---
         self.neck_layers = nn.ModuleList(copy.deepcopy(m[10:22]))
         self.head = copy.deepcopy(m[22])
 
@@ -110,23 +110,23 @@ class YOLOWithFusionAblation(nn.Module):
         return p3, p4, p5
 
     def forward(self, x):
-        # 1. 解析输入
+        # 1. parseinput
         if isinstance(x, dict):
             rgb = x['rgb']
             thermal = x['thermal']
         else:
             rgb = x
-            thermal = None  # 如果不是字典，假设只有RGB
+            thermal = None  # ifnotisdictionary，assumeonlyhaveRGB
 
-        # 2. RGB 骨干推理 (所有模式都需要)
+        # 2. RGB skeletondryinference (allmodeallneed)
         rgb_p3, rgb_p4, rgb_p5 = self.forward_backbone(self.rgb_backbone, rgb)
 
-        # 3. 融合逻辑
+        # 3. fusionlogic
         if self.fusion_mode == 'rgb':
-            # === Baseline: 仅使用 RGB ===
+            # === Baseline: onlyusing RGB ===
             f_p3, f_p4, f_p5 = rgb_p3, rgb_p4, rgb_p5
         else:
-            # === 双模态: 需要 Thermal ===
+            # === 双modelstate: need Thermal ===
             th_p3, th_p4, th_p5 = self.forward_backbone(self.thermal_backbone, thermal)
 
             if self.fusion_mode == 'dpafm':
@@ -142,7 +142,7 @@ class YOLOWithFusionAblation(nn.Module):
                 f_p4 = self.fusion_p4(torch.cat([rgb_p4, th_p4], dim=1))
                 f_p5 = self.fusion_p5(torch.cat([rgb_p5, th_p5], dim=1))
 
-        # --- Neck & Head (保持不变) ---
+        # --- Neck & Head (keepnotchange) ---
         x = self.neck_layers[0](f_p5)
         if x.shape[2:] != f_p4.shape[2:]: x = torch.nn.functional.interpolate(x, size=f_p4.shape[2:], mode='nearest')
         x = torch.cat([x, f_p4], dim=1)

@@ -1,7 +1,7 @@
 # scripts/run_final_training_fixed.py
 # !/usr/bin/env python3
 """
-最终版第二阶段训练脚本 - 修复编码问题
+finalversionsecondstagetrainingscript - fixencodingproblem
 """
 
 import os
@@ -13,7 +13,7 @@ sys.path.append(str(Path(__file__).parent.parent))
 
 
 def main():
-    parser = argparse.ArgumentParser(description='最终版第二阶段训练')
+    parser = argparse.ArgumentParser(description='finalversionsecondstagetraining')
     parser.add_argument('--config', type=str, default='configs/train/stage2.yaml')
     parser.add_argument('--features_dir', type=str, default='./stage1_features_diverse')
     parser.add_argument('--stage1_checkpoint', type=str,
@@ -21,79 +21,79 @@ def main():
     parser.add_argument('--epochs', type=int, default=80)
     parser.add_argument('--batch_size', type=int, default=4)
     parser.add_argument('--lr', type=float, default=0.001)
-    parser.add_argument('--use_simple', action='store_true', help='使用简单配置')
+    parser.add_argument('--use_simple', action='store_true', help='usingsimpleconfiguration')
 
     args = parser.parse_args()
 
-    # 加载配置
+    # loadconfiguration
     import yaml
 
     config_path = args.config
     if not os.path.exists(config_path):
-        print(f"⚠️ 配置文件不存在: {config_path}")
-        print("使用内置配置...")
+        print(f"⚠️ configurationfilenotexist: {config_path}")
+        print("usinginsideplaceconfiguration...")
         config = create_default_config(args)
     else:
         try:
-            # 使用UTF-8编码读取
+            # usingUTF-8encodingread
             with open(config_path, 'r', encoding='utf-8') as f:
                 config = yaml.safe_load(f)
         except UnicodeDecodeError:
-            print(f"⚠️ UTF-8解码失败，尝试GBK编码...")
+            print(f"⚠️ UTF-8decodingfailed，tryGBKencoding...")
             with open(config_path, 'r', encoding='gbk') as f:
                 config = yaml.safe_load(f)
         except Exception as e:
-            print(f"❌ 加载配置文件失败: {e}")
+            print(f"❌ loadingconfigurationfilefailed: {e}")
             config = create_default_config(args)
 
     if args.use_simple:
-        print("使用简化配置...")
+        print("usingsimplifyconfiguration...")
         config = create_simple_config(args)
 
-    # 更新命令行参数
+    # updatecommandlineparameter
     config['data']['stage1_features_dir'] = args.features_dir
     config['data']['batch_size'] = args.batch_size
     config['training']['epochs'] = args.epochs
     config['training']['optimizer']['lr'] = args.lr
 
-    # 检查特征目录
+    # checkfeaturedirectory
     features_dir = Path(args.features_dir)
     if not features_dir.exists():
-        print(f"❌ 特征目录不存在: {features_dir}")
-        print("请先运行特征提取脚本")
+        print(f"❌ featuredirectorynotexist: {features_dir}")
+        print("please firstrunfeatureextractscript")
         return
 
-    # 检查第一阶段检查点
+    # checkfirststagecheckpoint
     stage1_checkpoint = Path(args.stage1_checkpoint)
     if not stage1_checkpoint.exists():
-        print(f"❌ 第一阶段检查点不存在: {stage1_checkpoint}")
+        print(f"❌ firststagecheckpointnotexist: {stage1_checkpoint}")
         return
 
-    print(f"\n🎯 最终版训练配置:")
-    print(f"  配置文件: {args.config}")
-    print(f"  特征目录: {args.features_dir}")
-    print(f"  批次大小: {args.batch_size}")
-    print(f"  学习率: {args.lr}")
-    print(f"  训练轮次: {args.epochs}")
+    print(f"\n🎯 finalversiontrainingconfiguration:")
+    print(f"  configurationfile: {args.config}")
+    print(f"  featuredirectory: {args.features_dir}")
+    print(f"  batchminorlargesmall: {args.batch_size}")
+    print(f"  learning rate: {args.lr}")
+    print(f"  trainingepoch: {args.epochs}")
 
-    # 检查训练器类是否存在
+    # checktrainingdeviceclasswhetherexist
     try:
         from training.train_stage2 import Stage2CompleteTrainer
         TrainerClass = Stage2CompleteTrainer
-        print("✅ 使用Stage2CompleteTrainer")
+        print("✅ usingStage2CompleteTrainer")
     except ImportError:
-        print("❌ 无法导入Stage2CompleteTrainer")
+        print("❌ unable toimportStage2CompleteTrainer")
         return
 
-    # 创建训练器
+    # createtrainingdevice
     trainer = TrainerClass(config, args.stage1_checkpoint)
 
-    # 开始训练
+    # starttraining
     trainer.train(config['training']['epochs'])
 
 
 def create_default_config(args):
-    """创建默认配置"""
+    """createdefaultconfiguration"""
     return {
         'data': {
             'stage1_features_dir': args.features_dir,
@@ -147,7 +147,7 @@ def create_default_config(args):
 
 
 def create_simple_config(args):
-    """创建简化配置"""
+    """createsimplifyconfiguration"""
     return {
         'data': {
             'stage1_features_dir': args.features_dir,

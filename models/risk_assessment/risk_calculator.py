@@ -5,26 +5,26 @@ import torch
 
 class RiskCalculator:
     def __init__(self):
-        # 1. 类别索引映射 (根据 R-LiViT 数据集)
+        # 1. categoryindexmapping (rootaccording R-LiViT dataset)
         self.classes = [
             'car', 'person', 'bicycle', 'motorcycle',
             'bus', 'truck', 'tramway', 'escooter'
         ]
 
-        # 2. 风险参数配置表 (交通场景定制版)
-        # W_cls: 固有风险权重 (0-1)
-        # alpha: 速度敏感系数 (速度对风险的放大倍率)
-        # beta: 距离敏感度 (Sigmoid 的陡峭程度)
-        # d_safe: 安全距离阈值 (米)
+        # 2. riskparameterconfigurationtable (interactpassscenedefinecontrolversion)
+        # W_cls: 固haveriskweight (0-1)
+        # alpha: velocity敏感coefficient (velocitypairriskofscalelarge倍rate)
+        # beta: distancesensitivity (Sigmoid of陡峭programdegree)
+        # d_safe: safety/fulldistancethreshold (米)
         self.risk_params = {
-            'person': {'W_cls': 1.00, 'alpha': 0.1, 'beta': 2.5, 'd_safe': 10.0},  # 行人：最脆弱，最高优先级
-            'escooter': {'W_cls': 0.95, 'alpha': 0.2, 'beta': 2.0, 'd_safe': 12.0},  # 也就是 e-scooter
+            'person': {'W_cls': 1.00, 'alpha': 0.1, 'beta': 2.5, 'd_safe': 10.0},  # lineperson：most脆weak，mosthighbetterfirstlevel
+            'escooter': {'W_cls': 0.95, 'alpha': 0.2, 'beta': 2.0, 'd_safe': 12.0},  # also就is e-scooter
             'bicycle': {'W_cls': 0.90, 'alpha': 0.2, 'beta': 2.0, 'd_safe': 12.0},
-            'motorcycle': {'W_cls': 0.85, 'alpha': 0.3, 'beta': 1.8, 'd_safe': 15.0},  # 速度快
-            'car': {'W_cls': 0.60, 'alpha': 0.3, 'beta': 1.5, 'd_safe': 15.0},  # 常规目标
-            'truck': {'W_cls': 0.80, 'alpha': 0.2, 'beta': 1.2, 'd_safe': 20.0},  # 大型车：动量大，需更远距离
+            'motorcycle': {'W_cls': 0.85, 'alpha': 0.3, 'beta': 1.8, 'd_safe': 15.0},  # velocityfast
+            'car': {'W_cls': 0.60, 'alpha': 0.3, 'beta': 1.5, 'd_safe': 15.0},  # oftenrule/conventiontarget
+            'truck': {'W_cls': 0.80, 'alpha': 0.2, 'beta': 1.2, 'd_safe': 20.0},  # largetypevehicle：motionamountlarge，needmore远distance
             'bus': {'W_cls': 0.80, 'alpha': 0.2, 'beta': 1.2, 'd_safe': 20.0},
-            'tramway': {'W_cls': 0.70, 'alpha': 0.1, 'beta': 1.5, 'd_safe': 25.0},  # 轨迹固定，但制动难
+            'tramway': {'W_cls': 0.70, 'alpha': 0.1, 'beta': 1.5, 'd_safe': 25.0},  # 轨迹fixed，butcontrolmotion难
         }
 
     def sigmoid(self, x):
@@ -32,38 +32,38 @@ class RiskCalculator:
 
     def calculate_risk(self, cls_id, conf, depth, speed=0.0):
         """
-        计算单个目标的风险分数 R_final
-        :param cls_id: 类别 ID (int)
-        :param conf: 检测置信度 (0-1)
-        :param depth: LiDAR 测得的距离 (m)
-        :param speed: 相对速度 (m/s)
+        calculationsingleatargetofriskscore R_final
+        :param cls_id: category ID (int)
+        :param conf: detectionconfidence (0-1)
+        :param depth: LiDAR 测getofdistance (m)
+        :param speed: relativevelocity (m/s)
         :return: risk_score, risk_details (dict)
         """
-        # 获取类别名
+        # getcategoryname
         if cls_id >= len(self.classes):
-            cls_name = 'car'  # 默认回退
+            cls_name = 'car'  # defaultfallbackexit
         else:
             cls_name = self.classes[int(cls_id)]
 
         params = self.risk_params.get(cls_name, self.risk_params['car'])
 
-        # 1. 基础风险 R_base = W_cls * conf
+        # 1. basicrisk R_base = W_cls * conf
         r_base = params['W_cls'] * conf
 
-        # 2. 运动风险 R_motion = 1 + alpha * v_rel
-        # 交通场景下，速度越大风险越大
+        # 2. motionrisk R_motion = 1 + alpha * v_rel
+        # interactpassscenebelow，velocitymore/greaterlargeriskmore/greaterlarge
         r_motion = 1.0 + params['alpha'] * abs(speed)
 
-        # 3. 距离风险 R_proximity = Sigmoid(beta * (d_safe - d))
-        # 当 distance < d_safe 时，(d_safe - d) > 0，Sigmoid > 0.5 (风险急剧上升)
+        # 3. distancerisk R_proximity = Sigmoid(beta * (d_safe - d))
+        # when distance < d_safe when，(d_safe - d) > 0，Sigmoid > 0.5 (risk急剧above升)
         dist_diff = params['d_safe'] - depth
         r_proximity = self.sigmoid(params['beta'] * dist_diff)
 
-        # 4. 最终风险
+        # 4. finalrisk
         r_final = r_base * r_motion * r_proximity
 
-        # 5. 归一化/截断 (可选，防止分数过高)
-        # 这里不做硬截断，但在输出时可以限制
+        # 5. normalize/cutbreak (optional，preventscoretoohigh)
+        # herenotdo硬cutbreak，butat/inoutputwhenoptionalby/withlimit
 
         details = {
             'class': cls_name,
@@ -79,7 +79,7 @@ class RiskCalculator:
         return r_final, details
 
     def get_risk_level(self, score):
-        """根据分数返回风险等级字符串"""
+        """rootaccordingscorereturnriskwaitlevelcharactersymbol串"""
         if score > 0.85: return "🔴 EMERGENCY"
         if score > 0.6: return "🟠 HIGH"
         if score > 0.3: return "🟡 MEDIUM"

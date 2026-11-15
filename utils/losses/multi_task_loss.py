@@ -6,11 +6,11 @@ from typing import Dict
 
 class MultiTaskLoss(nn.Module):
     """
-    多任务损失函数
-    用于GNN增强阶段的三个任务：
-    1. 置信度重评分
-    2. 边界框微调
-    3. 风险评分
+    multipletaskloss function
+    forGNNthree tasks in the enhancement phase：
+    1. confidenceweightevaluatescore/divide
+    2. boundarybox微adjust
+    3. riskevaluatescore/divide
     """
 
     def __init__(self,
@@ -30,19 +30,19 @@ class MultiTaskLoss(nn.Module):
 
     def forward(self, predictions: Dict, targets: Dict) -> torch.Tensor:
         """
-        计算多任务损失
+        calculationmultipletaskloss
 
         Args:
-            predictions: 模型预测输出
-            targets: 真实标签
+            predictions: modelpredictionoutput
+            targets: truelabel
 
         Returns:
-            total_loss: 总损失
+            total_loss: totalloss
         """
         total_loss = 0.0
         loss_components = {}
 
-        # 置信度重评分损失
+        # confidenceweightevaluatescore/divideloss
         if 'confidence_scores' in predictions and 'confidence_targets' in targets:
             conf_pred = predictions['confidence_scores']
             conf_target = targets['confidence_targets']
@@ -52,7 +52,7 @@ class MultiTaskLoss(nn.Module):
                 total_loss += self.confidence_weight * conf_loss
                 loss_components['confidence_loss'] = conf_loss.item()
 
-        # 边界框微调损失
+        # boundarybox微adjustloss
         if 'bbox_deltas' in predictions and 'bbox_targets' in targets:
             bbox_pred = predictions['bbox_deltas']
             bbox_target = targets['bbox_targets']
@@ -62,7 +62,7 @@ class MultiTaskLoss(nn.Module):
                 total_loss += self.bbox_weight * bbox_loss
                 loss_components['bbox_loss'] = bbox_loss.item()
 
-        # 风险评分损失
+        # riskevaluatescore/divideloss
         if 'risk_scores' in predictions and 'risk_targets' in targets:
             risk_pred = predictions['risk_scores']
             risk_target = targets['risk_targets']
@@ -72,7 +72,7 @@ class MultiTaskLoss(nn.Module):
                 total_loss += self.risk_weight * risk_loss
                 loss_components['risk_loss'] = risk_loss.item()
 
-        # 如果没有有效的预测，返回零损失
+        # ifnothavehaveeffectofprediction，returnzeroloss
         if total_loss == 0:
             return torch.tensor(0.0, device=next(self.parameters()).device)
 
@@ -80,11 +80,11 @@ class MultiTaskLoss(nn.Module):
 
     def compute_detection_metrics(self, predictions: Dict, targets: Dict) -> Dict:
         """
-        计算检测相关指标
+        calculationdetectionmutual关metric
         """
         metrics = {}
 
-        # 置信度准确率
+        # confidenceaccuracy
         if 'confidence_scores' in predictions and 'confidence_targets' in targets:
             conf_pred = predictions['confidence_scores']
             conf_target = targets['confidence_targets']
@@ -94,7 +94,7 @@ class MultiTaskLoss(nn.Module):
                 conf_accuracy = (conf_pred_binary == conf_target).float().mean()
                 metrics['confidence_accuracy'] = conf_accuracy.item()
 
-        # 边界框IoU改进
+        # boundaryboxIoUimprove
         if 'bbox_deltas' in predictions:
             bbox_deltas = predictions['bbox_deltas']
             if bbox_deltas.numel() > 0:

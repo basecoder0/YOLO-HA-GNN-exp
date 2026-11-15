@@ -30,13 +30,13 @@ class DatasetVerifier:
         return inter_area / (b1_area + b2_area - inter_area + 1e-6)
 
     def run(self):
-        print(f"🔍 验证数据集: {self.data_dir}")
+        print(f"🔍 verify dataset: {self.data_dir}")
         if not self.train_list.exists():
-            print("❌ 索引文件缺失")
+            print("❌ index file missing")
             return
         with open(self.train_list) as f: samples = json.load(f)
 
-        print("\n📈 类别分布 (检查是否包含新类别)...")
+        print("\n📈 category distribution (check for new categories)...")
         label_counts = {}
         for info in random.sample(samples, min(1000, len(samples))):
             try:
@@ -46,7 +46,7 @@ class DatasetVerifier:
         for k in sorted(label_counts.keys()):
             print(f"   ID {k} ({self.id2name.get(k)}): {label_counts[k]}")
 
-        print("\n📡 聚集度分析...")
+        print("\n📡 clustering analysis...")
         total_pos, total_neig = 0, 0
         for info in tqdm(random.sample(samples, min(200, len(samples)))):
             try:
@@ -62,9 +62,9 @@ class DatasetVerifier:
             except: pass
 
         avg = total_neig / max(1, total_pos)
-        print(f"\n📊 平均伴随误检数: {avg:.2f}")
-        if avg < 0.5: print("⚠️ 警告: 环境太干净")
-        else: print("✅ 环境适中")
+        print(f"\n📊 average false positive count: {avg:.2f}")
+        if avg < 0.5: print("⚠️ warning: environment too clean")
+        else: print("✅ environment moderate")
 
 if __name__ == "__main__":
     DatasetVerifier().run()

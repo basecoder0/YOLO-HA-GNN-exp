@@ -1,6 +1,6 @@
 # extract_features_1280_s.py
 """
-Stage 2 特征提取脚本 (1280 高清 + YOLOv8s 适配版)
+Stage 2 featureextractscript (1280 highclear + YOLOv8s adaptversion)
 """
 import os
 import sys
@@ -19,7 +19,7 @@ from models.full_pipeline import YOLOGNNFusion
 from utils.device_utils import setup_device
 
 
-# 1280 Letterbox (与训练保持一致)
+# 1280 Letterbox (andtrainingkeeponeconsistent)
 def letterbox(img, new_shape=(1280, 1280), color=(114, 114, 114)):
     shape = img.shape[:2]
     if isinstance(new_shape, int): new_shape = (new_shape, new_shape)
@@ -35,7 +35,7 @@ def letterbox(img, new_shape=(1280, 1280), color=(114, 114, 114)):
     return img, (r, r), (dw, dh)
 
 
-# Projector (自动适配通道数)
+# Projector (autoadaptchannelcount)
 class FeatureProjector(nn.Module):
     def __init__(self, hidden_dim=1024, output_dim=256):
         super().__init__()
@@ -46,12 +46,12 @@ class FeatureProjector(nn.Module):
 
     def init_fc1(self, total_dim):
         device = next(self.parameters()).device
-        print(f"🔌 [Projector] 自动检测输入特征维度: {total_dim} (适配 yolov8s) -> 映射到 {self.hidden_dim}")
+        print(f"🔌 [Projector] autodetectioninputfeaturedimension: {total_dim} (adapt yolov8s) -> mappingto {self.hidden_dim}")
         self.fc1 = nn.Linear(total_dim, self.hidden_dim).to(device)
         nn.init.kaiming_normal_(self.fc1.weight, mode='fan_out', nonlinearity='relu')
 
     def forward(self, rois_p3, rois_p4, rois_p5):
-        # 展平并拼接
+        # expandflatandcombineconnect
         cat_feat = torch.cat([rois_p3.flatten(1), rois_p4.flatten(1), rois_p5.flatten(1)], dim=1)
         if self.fc1 is None: self.init_fc1(cat_feat.shape[1])
         return self.fc2(self.relu(self.fc1(cat_feat)))
@@ -60,39 +60,39 @@ class FeatureProjector(nn.Module):
 class Stage1FeatureExtractor:
     def __init__(self):
         self.device = setup_device()
-        # 路径配置
+        # pathconfiguration
         self.base_path = r"D:\BaiduNetdiskDownload\R-LiViT\R-LiViT"
         self.rgb_base = os.path.join(self.base_path, "R-LiViT_RGB-T", "rgb")
         self.thermal_base = os.path.join(self.base_path, "R-LiViT_RGB-T", "thermal")
         self.annotations_base = os.path.join(self.base_path, "R-LiViT_RGB-T", "annotations")
 
-        # 🔥 输出目录: 1280 专用
+        # 🔥 outputdirectory: 1280 specialuse
         self.output_dir = Path("./stage2_gnn_dataset_1280")
         self.output_dir.mkdir(exist_ok=True)
 
-        print("🔧 加载 Stage 1 模型 (1280版 + YOLOv8s)...")
-        # 尝试传入 model_path，如果 YOLOGNNFusion 不支持参数会报错，
-        # 但鉴于你改了 yolo_with_fusion 的默认值，即使不传参也会默认加载 s。
-        # 这里为了兼容性，先尝试传参，如果报错请删除 model_path 参数。
+        print("🔧 loading Stage 1 model (1280version + YOLOv8s)...")
+        # trypassinput model_path，if YOLOGNNFusion notbranchholdparameterwillerror，
+        # butregardingforyouchangepast tense marker yolo_with_fusion ofdefaultvalue，even without passing parameters it defaults toload s。
+        # heretocompatibleproperty，firsttrypassparameter，iferrorpleasedelete model_path parameter。
         try:
             self.model = YOLOGNNFusion(num_classes=8, confidence_threshold=0.01, nms_threshold=0.6,
                                        model_path='weights/yolov8s.pt').to(self.device)
         except TypeError:
-            print("⚠️ YOLOGNNFusion 不接受 model_path，将使用默认初始化 (请确保 yolo_with_fusion.py 默认值为 s)")
+            print("⚠️ YOLOGNNFusion notconnectbear model_path，willusingdefaultinitialization (pleasemake sure yolo_with_fusion.py defaultvaluefor/as s)")
             self.model = YOLOGNNFusion(num_classes=8, confidence_threshold=0.01, nms_threshold=0.6).to(self.device)
 
-        # 加载训练好的 best.pt
+        # loadtraininggoodof best.pt
         ckpt_path = "runs/stage1_rlivit_highres_8cls/best.pt"
         if not os.path.exists(ckpt_path): ckpt_path = "runs/stage1_rlivit_highres_8cls/last.pt"
 
-        print(f"📂 读取权重: {ckpt_path}")
+        print(f"📂 readweight: {ckpt_path}")
         if not os.path.exists(ckpt_path):
-            raise FileNotFoundError(f"❌ 找不到权重文件 {ckpt_path}，请先完成 Stage 1 训练！")
+            raise FileNotFoundError(f"❌ findnottoweightfile {ckpt_path}，please firstcompleted Stage 1 training！")
 
         checkpoint = torch.load(ckpt_path, map_location=self.device)
         state_dict = checkpoint['model_state_dict'] if 'model_state_dict' in checkpoint else checkpoint
 
-        # 过滤不匹配的键 (保险起见)
+        # filter mismatched keys (keepriskbeginsee)
         model_dict = self.model.state_dict()
         pretrained_dict = {k: v for k, v in state_dict.items() if k in model_dict and v.shape == model_dict[k].shape}
         self.model.load_state_dict(pretrained_dict, strict=False)
@@ -111,7 +111,7 @@ class Stage1FeatureExtractor:
 
             return hook
 
-        # 注册钩子到 Neck 输出层
+        # notevolumehookelementto Neck outputlayer
         self.model.yolo_fusion.neck_layers[5].register_forward_hook(get_activation('p3'))
         self.model.yolo_fusion.neck_layers[8].register_forward_hook(get_activation('p4'))
         self.model.yolo_fusion.neck_layers[11].register_forward_hook(get_activation('p5'))
@@ -122,21 +122,21 @@ class Stage1FeatureExtractor:
         timestamps = ['02', '06', '10', '14', '18', '22', '26', '30', '34', '38']
         sample_lists = {'train': [], 'test': []}
 
-        print("\n🚀 开始特征提取 (1280 Resolution)...")
+        print("\n🚀 startfeatureextract (1280 Resolution)...")
         for split_name, split_file in splits.items():
             if not os.path.exists(os.path.join(split_dir, split_file)): continue
             with open(os.path.join(split_dir, split_file), 'r') as f:
-                sequences = [x.strip() for x in f.readlines() if x.strip()]
+                sequenceuenceuences = [x.strip() for x in f.readlines() if x.strip()]
 
-            for seq in tqdm(sequences, desc=f"Processing {split_name}"):
+            for sequenceuence in tqdm(sequenceuenceuences, desc=f"Processing {split_name}"):
                 for ts in timestamps:
-                    sample_id = f"{seq}_{ts}"
-                    rgb_path = os.path.join(self.rgb_base, seq, f"{ts}.png")
-                    thm_path = os.path.join(self.thermal_base, seq, f"{ts}.png")
-                    ann_path = os.path.join(self.annotations_base, seq, f"{ts}.xml")
+                    sample_id = f"{sequenceuence}_{ts}"
+                    rgb_path = os.path.join(self.rgb_base, sequenceuence, f"{ts}.png")
+                    thm_path = os.path.join(self.thermal_base, sequenceuence, f"{ts}.png")
+                    ann_path = os.path.join(self.annotations_base, sequenceuence, f"{ts}.xml")
                     if not os.path.exists(rgb_path): continue
 
-                    # 🔥 1280 分辨率
+                    # 🔥 1280 resolution
                     target_size = 1280
 
                     img_rgb = cv2.cvtColor(cv2.imread(rgb_path), cv2.COLOR_BGR2RGB)
@@ -163,10 +163,10 @@ class Stage1FeatureExtractor:
                         boxes_xyxy = pred_boxes[:, :4]
                         scores = pred_boxes[:, 4:6]
 
-                        # 提取特征 (此时 Projector 会自动适配 yolov8s 的通道数)
+                        # extractfeature (thiswhen Projector willautoadapt yolov8s ofchannelcount)
                         node_features = self.extract_roi_features(feats, boxes_xyxy)
 
-                        # 归一化 Box (除以 1280)
+                        # normalize Box (divide/removeby/with 1280)
                         norm_boxes = boxes_xyxy.clone()
                         norm_boxes[:, 0] = ((boxes_xyxy[:, 0] + boxes_xyxy[:, 2]) / 2) / target_size
                         norm_boxes[:, 1] = ((boxes_xyxy[:, 1] + boxes_xyxy[:, 3]) / 2) / target_size
@@ -195,7 +195,7 @@ class Stage1FeatureExtractor:
 
         for k, v in sample_lists.items():
             with open(self.output_dir / f"stage2_{k}_list.json", 'w') as f: json.dump(v, f, indent=2)
-        print(f"\n✅ 1280特征提取完成！目录: {self.output_dir}")
+        print(f"\n✅ 1280featureextractcompleted！directory: {self.output_dir}")
 
     def extract_roi_features(self, feat_dict, boxes):
         batch_idx = torch.zeros((boxes.shape[0], 1), device=self.device)
@@ -209,7 +209,7 @@ class Stage1FeatureExtractor:
         if not os.path.exists(xml): return torch.empty(0, 4).to(self.device), torch.empty(0).to(self.device)
         root = ET.parse(xml).getroot()
         boxes, clss = [], []
-        # 8 类映射 (需与 Dataset 一致)
+        # 8 classmapping (needand Dataset oneconsistent)
         cls_map = {'car': 1, 'person': 2, 'bicycle': 3, 'motorcycle': 4, 'bus': 5, 'truck': 6, 'tramway': 7,
                    'escooter': 8, 'e-scooter': 8, 'van': 1, 'suv': 1, 'trailer': 6}
         for obj in root.findall('object'):

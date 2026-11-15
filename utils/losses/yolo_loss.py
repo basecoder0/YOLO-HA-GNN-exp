@@ -8,8 +8,8 @@ from ultralytics.utils.ops import xywh2xyxy
 
 class SigmoidFocalLoss(nn.Module):
     """
-    [修复版] 支持软标签 (Soft Labels) 的 Focal Loss
-    解决 target!=1 导致正样本被忽略的问题
+    [fixversion] branchhold软label (Soft Labels) of Focal Loss
+    resolve决 target!=1 problem causing positive samples to be ignored
     """
 
     def __init__(self, alpha=0.25, gamma=2.0, reduction='mean'):
@@ -24,22 +24,22 @@ class SigmoidFocalLoss(nn.Module):
 
         pred_prob = torch.sigmoid(pred_logits)
 
-        # 计算 BCE Loss (不做 reduce)
-        # binary_cross_entropy_with_logits 数值稳定性更好
+        # calculation BCE Loss (notdo reduce)
+        # binary_cross_entropy_with_logits value稳definepropertymoregood
         bce_loss = F.binary_cross_entropy_with_logits(pred_logits, target, reduction='none')
 
-        # 计算 pt (预测概率与真实标签的接近程度)
-        # 对于软标签 y, pt 可以近似为 p*y + (1-p)*(1-y)
-        # 当 y=1 时, pt=p; 当 y=0 时, pt=1-p
+        # calculation pt (predictionprobabilityandtruelabelofconnectcloseprogramdegree)
+        # pairfor软label y, pt optionalby/withclose似for/as p*y + (1-p)*(1-y)
+        # when y=1 when, pt=p; when y=0 when, pt=1-p
         p_t = pred_prob * target + (1 - pred_prob) * (1 - target)
 
-        # 计算 alpha 因子 (平衡正负样本)
+        # calculation alpha becauseelement (flat衡positivenegativesample)
         alpha_factor = target * self.alpha + (1 - target) * (1 - self.alpha)
 
-        # 计算调制因子 (Modulating Factor)
+        # calculationadjustcontrolbecauseelement (Modulating Factor)
         modulating_factor = torch.pow((1.0 - p_t), self.gamma)
 
-        # 最终 Loss
+        # final Loss
         loss = alpha_factor * modulating_factor * bce_loss
 
         if self.reduction == 'mean':
@@ -52,7 +52,7 @@ class SigmoidFocalLoss(nn.Module):
 
 class HighRecallAssigner(TaskAlignedAssigner):
     """
-    松弛匹配分配器 (Relaxed Matching)
+    松弛matchscore/divideconfiguredevice (Relaxed Matching)
     """
 
     def __init__(self, topk=13, num_classes=80, alpha=0.5, beta=6.0, eps=1e-9):
@@ -61,8 +61,8 @@ class HighRecallAssigner(TaskAlignedAssigner):
 
 class CustomYOLOLoss(v8DetectionLoss):
     """
-    适配自定义 YOLO-Fusion 模型的损失函数
-    集成 Focal Loss 和 High Recall Assigner
+    adaptcustom YOLO-Fusion modelofloss function
+    collectgenerate Focal Loss and High Recall Assigner
     """
 
     def __init__(self, model, hyp, alpha=0.25, gamma=2.0):
@@ -78,7 +78,7 @@ class CustomYOLOLoss(v8DetectionLoss):
         self.reg_max = m.reg_max
         self.stride = m.stride
 
-        # 使用修复后的 Focal Loss
+        # usingfixafterof Focal Loss
         self.bce = SigmoidFocalLoss(alpha=alpha, gamma=gamma, reduction='none')
         self.use_dfl = m.reg_max > 1
 

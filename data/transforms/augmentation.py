@@ -9,21 +9,21 @@ from albumentations.pytorch import ToTensorV2
 
 class MultiModalTransform:
     """
-    多模态数据变换基类
-    处理RGB、热成像和LiDAR数据
+    multiplemodelstatedatatransformationbaseclass
+    processingRGB、thermalimagingandLiDARdata
     """
 
     def __init__(self, input_size: Tuple[int, int] = (640, 640)):
         self.input_size = input_size
 
     def __call__(self, data: Dict) -> Dict:
-        """应用变换"""
+        """application/applytransformation"""
         raise NotImplementedError
 
 
 class TrainTransform(MultiModalTransform):
     """
-    训练数据变换 - 修复维度顺序和归一化版本 (已移除不兼容的 CoarseDropout)
+    trainingdatatransformation - fixdimension顺sequenceandnormalizeversion (alreadyremovednotcompatibleof CoarseDropout)
     """
 
     def __init__(self,
@@ -32,7 +32,7 @@ class TrainTransform(MultiModalTransform):
                  normalize_rgb: bool = True,
                  normalize_thermal: bool = True):
 
-        # 确保input_size是元组
+        # make sureinput_sizeiselementgroup
         if isinstance(input_size, int):
             input_size = (input_size, input_size)
         elif not isinstance(input_size, (tuple, list)):
@@ -46,25 +46,25 @@ class TrainTransform(MultiModalTransform):
         self.normalize_rgb = normalize_rgb
         self.normalize_thermal = normalize_thermal
 
-        # RGB图像增强变换
+        # RGBimageenhancetransformation
         if use_augmentation:
             self.rgb_augmentations = A.Compose([
-                # 1. 几何变换
+                # 1. fewwhattransformation
                 A.RandomResizedCrop(height=input_size[1], width=input_size[0],
                                     scale=(0.5, 1.0), ratio=(0.8, 1.2), p=0.5),
                 A.HorizontalFlip(p=0.5),
                 A.VerticalFlip(p=0.1),
                 A.Rotate(limit=15, p=0.3),
 
-                # 2. 颜色变换 (已验证通过)
+                # 2. colortransformation (alreadyverifythrough)
                 A.ColorJitter(brightness=0.2, contrast=0.2,
                               saturation=0.2, hue=0.1, p=0.5),
 
-                # 3. 噪声与模糊
+                # 3. noise声andblurry
                 A.GaussNoise(var_limit=(10.0, 50.0), p=0.3),
                 A.Blur(blur_limit=3, p=0.2),
 
-                # ❌ 已移除不兼容的 CoarseDropout
+                # ❌ removednotcompatibleof CoarseDropout
 
             ], bbox_params=A.BboxParams(
                 format='pascal_voc',
@@ -82,7 +82,7 @@ class TrainTransform(MultiModalTransform):
                 min_visibility=0.1
             ))
 
-        # 热成像增强变换
+        # thermalimagingenhancetransformation
         self.thermal_augmentations = A.Compose([
             A.RandomResizedCrop(height=input_size[1], width=input_size[0],
                                 scale=(0.5, 1.0), ratio=(0.8, 1.2), p=0.5),
@@ -96,39 +96,39 @@ class TrainTransform(MultiModalTransform):
 
         self.to_tensor = ToTensorV2()
 
-        # RGB归一化参数
+        # RGBnormalizeparameter
         self.rgb_mean = [0.485, 0.456, 0.406]
         self.rgb_std = [0.229, 0.224, 0.225]
 
     def __call__(self, data: Dict) -> Dict:
-        """应用训练变换"""
+        """application/applytrainingtransformation"""
 
-        # 1. 处理RGB图像和边界框
+        # 1. processingRGBimageandboundarybox
         if 'rgb' in data:
             rgb_image = data['rgb']
             bboxes = data.get('bboxes', np.zeros((0, 4)))
             labels = data.get('labels', np.zeros((0,)))
             occlusion = data.get('occlusion', np.zeros((0,)))
 
-            # 转换为numpy
+            # convertfor/asnumpy
             if torch.is_tensor(rgb_image):
                 rgb_image = rgb_image.cpu().numpy()
 
             if not isinstance(rgb_image, np.ndarray):
                 rgb_image = np.array(rgb_image)
 
-            # [关键保持] 检查并调整维度顺序: (C, H, W) -> (H, W, C)
+            # [criticalkeep] checkandadjustmentdimension顺sequence: (C, H, W) -> (H, W, C)
             if rgb_image.ndim == 3 and rgb_image.shape[0] in [1, 3] and rgb_image.shape[0] < rgb_image.shape[1]:
                 rgb_image = np.transpose(rgb_image, (1, 2, 0))
 
-            # 确保图像是uint8类型 [0-255]
+            # make sureimageisuint8classtype [0-255]
             if rgb_image.dtype != np.uint8:
                 if rgb_image.max() <= 1.0:
                     rgb_image = (rgb_image * 255).astype(np.uint8)
                 else:
                     rgb_image = rgb_image.astype(np.uint8)
 
-            # 确保边界框是numpy数组
+            # make sureboundaryboxisnumpycountgroup
             if not isinstance(bboxes, np.ndarray):
                 if torch.is_tensor(bboxes):
                     bboxes = bboxes.cpu().numpy()
@@ -138,7 +138,7 @@ class TrainTransform(MultiModalTransform):
             if bboxes.ndim == 1 and len(bboxes) == 4:
                 bboxes = bboxes.reshape(1, -1)
 
-            # 确保边界框数据有效
+            # make sureboundaryboxdatahaveeffect
             valid_bboxes = []
             valid_labels = []
             valid_occlusion = []
@@ -146,11 +146,11 @@ class TrainTransform(MultiModalTransform):
             if len(bboxes) > 0:
                 h, w = rgb_image.shape[:2]
                 for i, box in enumerate(bboxes):
-                    # 检查坐标是否有效
+                    # checkcoordinatewhetherhaveeffect
                     if box[2] > box[0] and box[3] > box[1] and \
                             box[0] >= 0 and box[1] >= 0 and \
-                            box[2] <= 1.0 and box[3] <= 1.0:  # 假设输入是归一化的0-1
-                        # Albumentations pascal_voc 格式需要绝对坐标
+                            box[2] <= 1.0 and box[3] <= 1.0:  # assumeinputisnormalizeof0-1
+                        # Albumentations pascal_voc formatneedabsolutecoordinate
                         abs_box = [
                             box[0] * w,
                             box[1] * h,
@@ -164,7 +164,7 @@ class TrainTransform(MultiModalTransform):
                         else:
                             valid_occlusion.append(0.0)
 
-            # 应用增强
+            # application/applyenhance
             if len(valid_bboxes) > 0:
                 try:
                     augmented = self.rgb_augmentations(
@@ -175,7 +175,7 @@ class TrainTransform(MultiModalTransform):
                     )
                     rgb_image = augmented['image']
 
-                    # 转换回相对坐标 [0-1]
+                    # convertfallbackrelativecoordinate [0-1]
                     aug_h, aug_w = rgb_image.shape[:2]
                     new_bboxes = []
                     if augmented['bboxes']:
@@ -192,7 +192,7 @@ class TrainTransform(MultiModalTransform):
                     occlusion = np.array(augmented['occlusion']) if augmented['occlusion'] else np.zeros((0,))
                 except Exception as e:
                     print(f"Augmentation failed: {e}")
-                    # 回退：仅调整大小
+                    # fallbackexit：onlyadjustmentlargesmall
                     rgb_image = cv2.resize(rgb_image, (self.input_size[0], self.input_size[1]))
                     bboxes = np.zeros((0, 4))
                     labels = np.zeros((0,))
@@ -201,10 +201,10 @@ class TrainTransform(MultiModalTransform):
                 bboxes = np.zeros((0, 4))
                 labels = np.zeros((0,))
 
-            # 转换为张量 (ToTensorV2 会自动将 HWC 转为 CHW)
+            # convertfor/astensoramount (ToTensorV2 willautowill HWC convertfor/as CHW)
             rgb_tensor = self.to_tensor(image=rgb_image)['image']
 
-            # 归一化
+            # normalize
             if self.normalize_rgb:
                 rgb_tensor = rgb_tensor.float() / 255.0
                 for c in range(3):
@@ -215,15 +215,15 @@ class TrainTransform(MultiModalTransform):
             data['labels'] = labels
             data['occlusion'] = occlusion
 
-        # 2. 处理热成像图像
+        # 2. processingthermalimagingimage
         if 'thermal' in data:
             thermal_image = data['thermal']
 
-            # 转换为numpy
+            # convertfor/asnumpy
             if torch.is_tensor(thermal_image):
                 thermal_image = thermal_image.cpu().numpy()
 
-            # 处理维度 (C, H, W) -> (H, W) 或 (H, W, C)
+            # processingdimension (C, H, W) -> (H, W) or (H, W, C)
             if thermal_image.ndim == 3:
                 if thermal_image.shape[0] == 1:  # (1, H, W)
                     thermal_image = thermal_image[0]
@@ -231,27 +231,27 @@ class TrainTransform(MultiModalTransform):
                     thermal_image = np.transpose(thermal_image, (1, 2, 0))
                     thermal_image = cv2.cvtColor(thermal_image, cv2.COLOR_RGB2GRAY)
 
-            # 确保是uint8
+            # make sureisuint8
             if thermal_image.dtype != np.uint8:
                 if thermal_image.max() <= 1.0:
                     thermal_image = (thermal_image * 255).astype(np.uint8)
                 else:
                     thermal_image = thermal_image.astype(np.uint8)
 
-            # 增强
+            # enhance
             try:
                 augmented = self.thermal_augmentations(image=thermal_image)
                 thermal_image = augmented['image']
             except:
                 thermal_image = cv2.resize(thermal_image, (self.input_size[0], self.input_size[1]))
 
-            # 确保转换为3通道 (适应ResNet输入)
+            # make sureconvertfor/as3channel (suitableshouldResNetinput)
             if thermal_image.ndim == 2:
                 thermal_image = np.stack([thermal_image] * 3, axis=-1)
             elif thermal_image.ndim == 3 and thermal_image.shape[2] == 1:
                 thermal_image = np.concatenate([thermal_image] * 3, axis=-1)
 
-            # 转换为张量 [C, H, W]
+            # convertfor/astensoramount [C, H, W]
             thermal_tensor = torch.from_numpy(thermal_image.transpose(2, 0, 1)).float()
 
             if self.normalize_thermal:
@@ -259,7 +259,7 @@ class TrainTransform(MultiModalTransform):
 
             data['thermal'] = thermal_tensor
 
-        # 3. LiDAR (保持不变)
+        # 3. LiDAR (keepnotchange)
         if 'lidar' in data and torch.is_tensor(data['lidar']):
             lidar_tensor = data['lidar']
             if self.use_augmentation:
@@ -274,7 +274,7 @@ class TrainTransform(MultiModalTransform):
 
 
 class ValTransform(MultiModalTransform):
-    """验证数据变换"""
+    """validationdatatransformation"""
 
     def __init__(self,
                  input_size: Tuple[int, int] = (640, 640),

@@ -13,8 +13,8 @@ from utils.risk_ground_truth import RiskGroundTruthCalculator
 
 class Stage2Dataset(Dataset):
     """
-    第二阶段训练数据集
-    集成：1) 第一阶段特征 2) LiDAR数据 3) 风险真值
+    secondstagetrainingdataset
+    collectgenerate：1) firststagefeature 2) LiDARdata 3) risktruevalue
     """
 
     def __init__(self,
@@ -37,7 +37,7 @@ class Stage2Dataset(Dataset):
         self.max_samples = max_samples
         self.transform = transform
 
-        # LiDAR配置
+        # LiDARconfiguration
         if lidar_config is None:
             lidar_config = {
                 'bev_size': (128, 128),
@@ -48,7 +48,7 @@ class Stage2Dataset(Dataset):
             }
         self.lidar_config = lidar_config
 
-        # 加载基础数据集（用于获取LiDAR和原始图像）
+        # loadbasicdataset（forgetLiDARandoriginalimage）
         self.base_dataset = RLiViTDataset(
             dataset_path=dataset_path,
             split=split,
@@ -58,16 +58,16 @@ class Stage2Dataset(Dataset):
             transform=transform
         )
 
-        # 加载第一阶段特征
+        # loadfirststagefeature
         self.feature_samples = self._load_stage1_features()
 
-        # 加载风险标签
+        # loadrisklabel
         self.risk_labels = self._load_risk_labels()
 
-        # 风险计算器（用于实时计算风险真值）
+        # riskcalculationdevice（forrealwhencalculationrisktruevalue）
         self.risk_calculator = RiskGroundTruthCalculator()
 
-        # 创建样本映射
+        # createsamplemapping
         self.samples = self._create_sample_mapping()
 
         print(f"📊 Stage2 Dataset - {split}:")
@@ -78,7 +78,7 @@ class Stage2Dataset(Dataset):
         print(f"  Use LiDAR: {use_lidar}")
 
     def _load_stage1_features(self) -> List[Dict]:
-        """加载第一阶段提取的特征"""
+        """loadingfirststageextractoffeature"""
         features = []
         features_dir = Path(self.stage1_features_dir) / self.split
 
@@ -101,7 +101,7 @@ class Stage2Dataset(Dataset):
 
                 sample_id = feature_file.stem
 
-                # 确保特征数据包含必要的信息
+                # make surefeaturedatacontainsmustneedofinformation
                 if 'detections' not in feature_data:
                     feature_data['detections'] = np.zeros((0, 6))
                 if 'node_features' not in feature_data:
@@ -121,15 +121,15 @@ class Stage2Dataset(Dataset):
         return features
 
     def _create_simulated_features(self) -> List[Dict]:
-        """创建模拟特征（用于测试）"""
+        """createsimulatefeature（fortest）"""
         print("🔧 Creating simulated stage1 features for testing...")
 
         features = []
-        # 使用基础数据集中的样本ID
-        for i, sample in enumerate(self.base_dataset.samples[:100]):  # 限制100个样本
+        # usingbasicdatasetinofsampleID
+        for i, sample in enumerate(self.base_dataset.samples[:100]):  # limit100asample
             sample_id = sample['id']
 
-            # 模拟检测结果
+            # simulatedetectionresult
             num_detections = np.random.randint(1, 10)
             detections = np.zeros((num_detections, 6))
 
@@ -143,10 +143,10 @@ class Stage2Dataset(Dataset):
                 class_id = np.random.choice([0, 1, 2])
                 detections[j] = [x1, y1, x2, y2, conf, class_id]
 
-            # 模拟节点特征
+            # simulatenodefeature
             node_features = np.random.randn(num_detections, 256)
 
-            # 模拟场景特征
+            # simulatescenefeature
             scene_features = np.random.randn(256)
 
             features.append({
@@ -155,7 +155,7 @@ class Stage2Dataset(Dataset):
                     'detections': detections,
                     'node_features': node_features,
                     'scene_features': scene_features,
-                    'sequence_id': sample['sequence_id'],
+                    'sequenceuenceuence_id': sample['sequenceuenceuence_id'],
                     'frame_id': sample['frame_id']
                 },
                 'num_detections': num_detections
@@ -164,7 +164,7 @@ class Stage2Dataset(Dataset):
         return features
 
     def _load_risk_labels(self) -> Dict:
-        """加载风险标签"""
+        """loadingrisklabel"""
         risk_file = Path(self.risk_labels_path) / f'risk_labels_{self.split}.json'
 
         if not risk_file.exists():
@@ -184,14 +184,14 @@ class Stage2Dataset(Dataset):
             return {}
 
     def _create_sample_mapping(self) -> List[Dict]:
-        """创建样本映射，将特征、基础数据和风险标签关联起来"""
+        """createsamplemapping，willfeature、basicdataandrisklabelcorrelationbeginto"""
         samples = []
 
-        # 使用特征样本作为基础
+        # usingfeaturesampleasbasic
         for feature_sample in self.feature_samples:
             sample_id = feature_sample['id']
 
-            # 查找对应的基础数据样本
+            # checkfindcorrespondingofbasicdatasample
             base_sample_idx = -1
             for i, base_sample in enumerate(self.base_dataset.samples):
                 if base_sample['id'] == sample_id:
@@ -199,10 +199,10 @@ class Stage2Dataset(Dataset):
                     break
 
             if base_sample_idx == -1:
-                # 如果没有找到对应的基础样本，跳过
+                # ifnothavefindto the corresponding base sample，skip
                 continue
 
-            # 获取风险标签
+            # getrisklabel
             risk_info = self.risk_labels.get(sample_id, {})
 
             sample = {
@@ -215,28 +215,28 @@ class Stage2Dataset(Dataset):
 
             samples.append(sample)
 
-        # 限制样本数量
+        # limitsamplecountamount
         if self.max_samples > 0 and len(samples) > self.max_samples:
             samples = samples[:self.max_samples]
 
         return samples
 
     def _calculate_risk_ground_truth(self, sample_id: str, detections: np.ndarray) -> np.ndarray:
-        """计算风险真值（如果预计算的标签不存在）"""
-        # 首先尝试使用预计算的标签
+        """calculationrisktruevalue（ifpredict/precalculationoflabelnotexist）"""
+        # 首firsttryusingpredict/precalculationoflabel
         if sample_id in self.risk_labels:
             risk_scores = np.array(self.risk_labels[sample_id].get('risk_scores', []))
             if len(risk_scores) > 0:
                 return risk_scores
 
-        # 如果没有预计算的标签，实时计算
+        # ifnothavepredict/precalculationoflabel，realwhencalculation
         detection_list = []
         for det in detections:
             detection_list.append({
                 'bbox': det[:4].tolist(),
                 'class_id': int(det[5]),
                 'confidence': float(det[4]),
-                'occlusion': 0.0  # 假设没有遮挡信息
+                'occlusion': 0.0  # assumenothavecoverblockinformation
             })
 
         risk_scores = self.risk_calculator.calculate_risk_for_frame(
@@ -256,49 +256,49 @@ class Stage2Dataset(Dataset):
 
         data = {
             'sample_id': sample_id,
-            'sequence_id': sample['feature_data'].get('sequence_id', 'unknown'),
+            'sequenceuenceuence_id': sample['feature_data'].get('sequenceuenceuence_id', 'unknown'),
             'frame_id': sample['feature_data'].get('frame_id', 'unknown'),
             'num_targets': sample['num_targets']
         }
 
-        # 1. 第一阶段特征
+        # 1. firststagefeature
         feature_data = sample['feature_data']
 
-        # 检测结果
+        # detectionresult
         detections = feature_data.get('detections', np.zeros((0, 6)))
         data['detections'] = torch.from_numpy(detections).float()
 
-        # 节点特征（GNN输入）
+        # nodefeature（GNNinput）
         node_features = feature_data.get('node_features', np.zeros((0, 256)))
         data['node_features'] = torch.from_numpy(node_features).float()
 
-        # 场景特征
+        # scenefeature
         scene_features = feature_data.get('scene_features', np.zeros((256,)))
         data['scene_features'] = torch.from_numpy(scene_features).float()
 
-        # 2. LiDAR特征（从基础数据集获取）
+        # 2. LiDARfeature（frombasicdatasetget）
         base_sample = self.base_dataset[sample['base_sample_idx']]
         if 'lidar' in base_sample and torch.is_tensor(base_sample['lidar']):
             data['lidar_features'] = base_sample['lidar'].float()
         else:
-            # 创建空的LiDAR特征
+            # createemptyofLiDARfeature
             data['lidar_features'] = torch.zeros(
                 (self.lidar_config['output_channels'],
                  self.lidar_config['bev_size'][1],
                  self.lidar_config['bev_size'][0])
             ).float()
 
-        # 3. 风险真值
+        # 3. risktruevalue
         risk_scores = self._calculate_risk_ground_truth(sample_id, detections)
         data['risk_ground_truth'] = torch.from_numpy(risk_scores).float()
 
-        # 4. 原始图像（可选，用于可视化）
+        # 4. originalimage（optional，forvisualization）
         if 'rgb' in base_sample:
             data['rgb_image'] = base_sample['rgb'].float()
         if 'thermal' in base_sample:
             data['thermal_image'] = base_sample['thermal'].float()
 
-        # 5. 原始边界框（用于验证）
+        # 5. originalboundarybox（forverify）
         if 'bboxes' in base_sample:
             data['original_bboxes'] = torch.from_numpy(base_sample['bboxes']).float()
         if 'labels' in base_sample:
@@ -309,23 +309,23 @@ class Stage2Dataset(Dataset):
 
 def collate_stage2_batch(batch: List[Dict]) -> Dict:
     """
-    第二阶段数据批处理函数
-    处理可变长度的检测结果和节点特征
+    secondstagedatabatchprocessingfunction
+    processingvariablelengthofdetectionresultandnodefeature
     """
     collated = {}
 
-    # 获取所有键
+    # getallkey
     keys = batch[0].keys()
 
     for key in keys:
         values = [item[key] for item in batch]
 
         if key in ['detections', 'node_features', 'risk_ground_truth']:
-            # 对于可变长度的张量，保持为列表
+            # for variable length tensoramount，keepfor/aslist
             collated[key] = values
 
         elif key in ['lidar_features', 'scene_features', 'rgb_image', 'thermal_image']:
-            # 对于固定形状的张量，堆叠
+            # for fixed shape tensoramount，堆叠
             if all(torch.is_tensor(v) for v in values):
                 try:
                     collated[key] = torch.stack(values)
@@ -333,30 +333,30 @@ def collate_stage2_batch(batch: List[Dict]) -> Dict:
                     print(f"Warning: Could not stack {key}: {e}")
                     collated[key] = values
 
-        elif key in ['sample_id', 'sequence_id', 'frame_id']:
-            # 字符串ID
+        elif key in ['sample_id', 'sequenceuenceuence_id', 'frame_id']:
+            # charactersymbol串ID
             collated[key] = values
 
         elif key in ['num_targets']:
-            # 数值
+            # value
             collated[key] = torch.tensor(values, dtype=torch.int32)
 
         elif torch.is_tensor(values[0]):
-            # 其他张量
+            # itsothertensoramount
             try:
                 collated[key] = torch.stack(values)
             except:
                 collated[key] = values
 
         else:
-            # 其他类型
+            # itsotherclasstype
             collated[key] = values
 
     return collated
 
 
 class Stage2DataLoader:
-    """第二阶段数据加载器包装类"""
+    """secondstagedata loadingdevicepackinstallclass"""
 
     @staticmethod
     def create(dataset_path: str,
@@ -367,7 +367,7 @@ class Stage2DataLoader:
                num_workers: int = 4,
                shuffle: bool = True,
                max_samples: int = -1):
-        # 创建数据集
+        # createdataset
         dataset = Stage2Dataset(
             dataset_path=dataset_path,
             stage1_features_dir=stage1_features_dir,
@@ -377,7 +377,7 @@ class Stage2DataLoader:
             max_samples=max_samples
         )
 
-        # 创建数据加载器
+        # createdataloaddevice
         loader = torch.utils.data.DataLoader(
             dataset,
             batch_size=batch_size,
@@ -391,29 +391,29 @@ class Stage2DataLoader:
 
 
 def test_stage2_dataset():
-    """测试第二阶段数据集"""
+    """testsecondstagedataset"""
     print("🧪 Testing Stage2 Dataset...")
 
-    # 测试配置
+    # testconfiguration
     dataset_path = "D:/BaiduNetdiskDownload/R-LiViT/R-LiViT"
-    stage1_features_dir = "./stage1_features"  # 假设第一阶段特征保存在这里
+    stage1_features_dir = "./stage1_features"  # assumefirststagefeaturesaveat/inhere
     risk_labels_path = "./risk_labels"
 
-    # 创建数据集
+    # createdataset
     dataset = Stage2Dataset(
         dataset_path=dataset_path,
         stage1_features_dir=stage1_features_dir,
         risk_labels_path=risk_labels_path,
         split='train',
         use_lidar=True,
-        max_samples=10  # 只测试10个样本
+        max_samples=10  # onlytest10asample
     )
 
     print(f"\n📋 Dataset info:")
     print(f"  Total samples: {len(dataset)}")
 
     if len(dataset) > 0:
-        # 测试一个样本
+        # testoneasample
         sample = dataset[0]
         print(f"\n🔍 Sample 0:")
         print(f"  ID: {sample['sample_id']}")
@@ -425,7 +425,7 @@ def test_stage2_dataset():
         print(
             f"  Risk values: {sample['risk_ground_truth'][:3].tolist() if len(sample['risk_ground_truth']) > 3 else sample['risk_ground_truth'].tolist()}")
 
-        # 测试批处理
+        # testbatchprocessing
         batch = [dataset[i] for i in range(min(3, len(dataset)))]
         collated = collate_stage2_batch(batch)
 

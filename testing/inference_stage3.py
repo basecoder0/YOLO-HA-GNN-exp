@@ -8,9 +8,9 @@ import yaml
 import pandas as pd
 import warnings
 import torchvision
-from tqdm import tqdm  # 进度条库
+from tqdm import tqdm  # progress barlibrary
 
-# === 1. 环境设置 ===
+# === 1. environmentset ===
 sys.path.append(os.getcwd())
 warnings.filterwarnings("ignore")
 
@@ -19,27 +19,27 @@ from utils.lidar_utils import LidarProcessor
 from models.gnn.hierarchical_gnn import HierarchicalGNN
 from ultralytics.utils.ops import xywh2xyxy
 
-# 🔥 导入 YOLO 类
+# 🔥 import YOLO class
 try:
     from models.yolo.yolo_with_fusion import YOLOWithFusion
 except ImportError:
-    print("❌ 错误: 无法导入 YOLOWithFusion。请确认 models/yolo/yolo_with_fusion.py 文件存在。")
+    print("❌ error: unable toimport YOLOWithFusion。pleaseconfirm models/yolo/yolo_with_fusion.py fileexist。")
     sys.exit(1)
 
 
 # ==============================================================================
-# 🧠 风险计算器 (内置交通场景参数)
+# 🧠 riskcalculationdevice (insideplaceinteractpasssceneparameter)
 # ==============================================================================
 class TrafficRiskCalculator:
     def __init__(self):
-        # 类别映射
+        # category mapping
         self.idx2name = {
             0: 'car', 1: 'person', 2: 'bicycle', 3: 'motorcycle',
             4: 'bus', 5: 'truck', 6: 'tramway', 7: 'escooter'
         }
 
-        # 🚦 核心参数设计
-        # w: 类别基础权重, d_safe: 安全距离阈值, alpha: 速度敏感度, beta: 距离敏感度
+        # 🚦 coreparametersetcount
+        # w: categorybasicweight, d_safe: safety/fulldistancethreshold, alpha: velocitysensitivity, beta: distancesensitivity
         self.params = {
             'person': {'w': 1.00, 'd_safe': 10.0, 'alpha': 0.1, 'beta': 2.5},
             'bicycle': {'w': 0.90, 'd_safe': 12.0, 'alpha': 0.2, 'beta': 2.0},
@@ -59,14 +59,14 @@ class TrafficRiskCalculator:
         cls_name = self.idx2name.get(int(cls_id), 'car')
         p = self.params.get(cls_name, self.default_param)
 
-        # 1. 基础风险
+        # 1. basicrisk
         r_base = p['w'] * conf
 
-        # 2. 运动风险
+        # 2. motionrisk
         r_motion = 1.0 + p['alpha'] * abs(speed)
 
-        # 3. 距离风险
-        # 如果 depth = 999 (未检测到), 风险项会趋近于 0
+        # 3. distancerisk
+        # if depth = 999 (notdetectionto), risktermwilltrendclosefor 0
         dist_diff = p['d_safe'] - depth
         r_prox = self.sigmoid(p['beta'] * dist_diff)
 
@@ -76,10 +76,10 @@ class TrafficRiskCalculator:
 
 
 # ==============================================================================
-# 🛠️ 辅助函数
+# 🛠️ auxiliaryfunction
 # ==============================================================================
 def simple_nms_final(prediction, conf_thres=0.1, iou_thres=0.5):
-    """NMS 后处理 (适配 1280 分辨率)"""
+    """NMS afterprocessing (adapt 1280 resolution)"""
     if prediction.shape[1] == 4 + 8:
         prediction = prediction.permute(0, 2, 1)
 
@@ -126,31 +126,31 @@ def letterbox(im, new_shape=(640, 640), color=(114, 114, 114), auto=True, scaleF
 
 
 # ==============================================================================
-# 🚀 全系统推理类
+# 🚀 fullcoefficientcountinferenceclass
 # ==============================================================================
 class FullSystemInference:
     def __init__(self, stage1_weights, stage2_weights, base_model_path, calib_file):
         self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-        print(f"🚀 初始化系统 (Device: {self.device})")
+        print(f"🚀 initializationcoefficientcount (Device: {self.device})")
 
-        # 1. 加载 Stage 1
-        print(f"📦 加载 Stage 1: {stage1_weights}")
+        # 1. load Stage 1
+        print(f"📦 loading Stage 1: {stage1_weights}")
         self.model_s1 = YOLOWithFusion(model_path=base_model_path, num_classes=8)
         state_dict = torch.load(stage1_weights, map_location=self.device)
         self.model_s1.load_state_dict(state_dict)
         self.model_s1.to(self.device).eval().float()
 
-        # 2. 加载 Stage 2
-        print(f"📦 加载 Stage 2 权重...")
+        # 2. load Stage 2
+        print(f"📦 loading Stage 2 weight...")
         try:
             self.gnn_model = HierarchicalGNN(node_feature_dim=256, hidden_dim=256).to(self.device)
-            # 暂时不启用 GNN 推理，仅确保环境和权重加载无误
+            # temporarilywhennotenableuse GNN inference，onlymake sureenvironmentandweightloadnomistake
             ckpt = torch.load(stage2_weights, map_location=self.device)
             self.gnn_model.eval()
         except Exception as e:
-            print(f"⚠️ Stage 2 加载警告: {e}")
+            print(f"⚠️ Stage 2 loadingwarning: {e}")
 
-        # 3. 工具
+        # 3. tool
         self.risk_calc = TrafficRiskCalculator()
         self.lidar_proc = LidarProcessor(calib_file)
 
@@ -161,7 +161,7 @@ class FullSystemInference:
 
         if rgb0 is None: return None
 
-        # 1. 预处理
+        # 1. predict/preprocessing
         img_size = 1280
         img_rgb, ratio, (dw, dh) = letterbox(rgb0, img_size, auto=False)
         t_rgb = torch.from_numpy(img_rgb.transpose((2, 0, 1))[::-1].copy()).to(self.device).float() / 255.0
@@ -173,7 +173,7 @@ class FullSystemInference:
         if t_rgb.ndimension() == 3: t_rgb = t_rgb.unsqueeze(0)
         if t_thm.ndimension() == 3: t_thm = t_thm.unsqueeze(0)
 
-        # 2. Stage 1 推理
+        # 2. Stage 1 inference
         detections = []
         with torch.no_grad():
             preds = self.model_s1({'rgb': t_rgb, 'thermal': t_thm})
@@ -191,20 +191,20 @@ class FullSystemInference:
                     x1, y1, x2, y2 = map(int, xyxy)
                     detections.append([int(cls_id), float(conf), x1, y1, x2, y2])
 
-        # 3. 风险计算与绘图
+        # 3. riskcalculationanddrawimage
         results_img = rgb0.copy()
 
         for det in detections:
             cls_id, conf, x1, y1, x2, y2 = det
             bbox = [x1, y1, x2, y2]
 
-            # 物理测距
+            # physicaldistance measurement
             depth, speed, _ = self.lidar_proc.get_object_depth_and_speed(points_3d, bbox)
 
-            # 计算分数
+            # calculationscore
             risk_score, cls_name = self.risk_calc.calculate(cls_id, conf, depth, speed)
 
-            # 绘图逻辑
+            # drawimagelogic
             color = (0, 255, 0)  # Green
             if risk_score > 0.3: color = (0, 165, 255)  # Orange
             if risk_score > 0.7: color = (0, 0, 255)  # Red
@@ -225,41 +225,41 @@ class FullSystemInference:
 
 
 # ==============================================================================
-# 🚀 主程序
+# 🚀 majorprogram
 # ==============================================================================
 if __name__ == "__main__":
-    # 1. 路径配置
+    # 1. pathconfiguration
     ROOT = r"D:\BaiduNetdiskDownload\R-LiViT\R-LiViT"
 
     BASE_MODEL_PT = r"D:\YOLO-GNN-Fusion\weights\yolov8s.pt"
     S1_WEIGHTS = r"D:\YOLO-GNN-Fusion\runs\stage1_rlivit_highres_8cls\best.pt"
     S2_WEIGHTS = r"D:\YOLO-GNN-Fusion\runs\stage2_gnn_1280\epoch_100.pth"
 
-    MAPPING_FILE = os.path.join(ROOT, "rgb_to_lidar_sequence_mapping.csv")
+    MAPPING_FILE = os.path.join(ROOT, "rgb_to_lidar_sequenceuenceuence_mapping.csv")
     CALIB_FILE = os.path.join(ROOT, "calibration_params.json")
 
     OUTPUT_DIR = r"D:\YOLO-GNN-Fusion\inference_stage3_results"
     os.makedirs(OUTPUT_DIR, exist_ok=True)
 
-    # 2. 初始化
+    # 2. initialization
     system = FullSystemInference(S1_WEIGHTS, S2_WEIGHTS, BASE_MODEL_PT, CALIB_FILE)
 
     if os.path.exists(MAPPING_FILE):
         df = pd.read_csv(MAPPING_FILE, dtype=str)
-        total_seqs = len(df)
-        print(f"📄 共发现 {total_seqs} 个序列，准备开始全量推理...")
-        print(f"💾 结果将保存至: {OUTPUT_DIR}")
+        total_sequenceuences = len(df)
+        print(f"📄 found total {total_sequenceuences} asequenceuenceuential，preparestartfullamountinference...")
+        print(f"💾 result will be saved to: {OUTPUT_DIR}")
 
-        # 3. 进度条遍历
-        # 移除了 .head(5)，使用 tqdm 显示进度
-        for index, row in tqdm(df.iterrows(), total=total_seqs, desc="Processing"):
+        # 3. progress bartraverse
+        # removedpast tense marker .head(5)，using tqdm showadvancedegree
+        for index, row in tqdm(df.iterrows(), total=total_sequenceuences, desc="Processing"):
             try:
-                rgb_seq_id = str(row['rgbt_seq_id']).strip().zfill(3)
-                lidar_seq_id = str(row['lidar_seq_id']).strip().zfill(4)
+                rgb_sequenceuence_id = str(row['rgbt_sequenceuence_id']).strip().zfill(3)
+                lidar_sequenceuence_id = str(row['lidar_sequenceuence_id']).strip().zfill(4)
 
-                # 创建序列对应的输出子文件夹
-                seq_output_dir = os.path.join(OUTPUT_DIR, rgb_seq_id)
-                os.makedirs(seq_output_dir, exist_ok=True)
+                # createsequenceuenceuentialcorrespondingofoutputelementfolder
+                sequenceuence_output_dir = os.path.join(OUTPUT_DIR, rgb_sequenceuence_id)
+                os.makedirs(sequenceuence_output_dir, exist_ok=True)
 
                 raw_imgs = str(row['rgb_imgs'])
                 img_list_str = raw_imgs.replace('[', '').replace(']', '').replace("'", "").split(',')
@@ -267,32 +267,32 @@ if __name__ == "__main__":
 
                 for img_id in img_ids:
                     frame_name = img_id.zfill(2)
-                    rgb_path = os.path.join(ROOT, 'R-LiViT_RGB-T', 'rgb', rgb_seq_id, f"{frame_name}.png")
-                    thermal_path = os.path.join(ROOT, 'R-LiViT_RGB-T', 'thermal', rgb_seq_id, f"{frame_name}.png")
+                    rgb_path = os.path.join(ROOT, 'R-LiViT_RGB-T', 'rgb', rgb_sequenceuence_id, f"{frame_name}.png")
+                    thermal_path = os.path.join(ROOT, 'R-LiViT_RGB-T', 'thermal', rgb_sequenceuence_id, f"{frame_name}.png")
 
                     try:
                         l_idx = int(frame_name)
                     except:
                         l_idx = 0
-                    lidar_path = os.path.join(ROOT, 'R-LiViT_LiDAR', 'point_clouds', lidar_seq_id, f"{l_idx:06d}.bin")
+                    lidar_path = os.path.join(ROOT, 'R-LiViT_LiDAR', 'point_clouds', lidar_sequenceuence_id, f"{l_idx:06d}.bin")
 
-                    # 容错：如果找不到png找jpg
+                    # containererror：iffindnottopngfindjpg
                     if not os.path.exists(rgb_path): rgb_path = rgb_path.replace('.png', '.jpg')
 
-                    # 检查文件完整性
+                    # checkfilecompleteproperty
                     if not (os.path.exists(rgb_path) and os.path.exists(thermal_path) and os.path.exists(lidar_path)):
                         continue
 
-                    # 执行推理
+                    # executeinference
                     res_img = system.run_inference(rgb_path, thermal_path, lidar_path)
 
                     if res_img is not None:
-                        save_p = os.path.join(seq_output_dir, f"{frame_name}.jpg")
+                        save_p = os.path.join(sequenceuence_output_dir, f"{frame_name}.jpg")
                         cv2.imwrite(save_p, res_img)
 
             except Exception as e:
-                # 打印错误但不中断循环
-                # print(f"❌ Seq {rgb_seq_id} Error: {e}")
+                # printerrorbutnotinbreakloop
+                # print(f"❌ Seq {rgb_sequenceuence_id} Error: {e}")
                 continue
 
-    print(f"\n🎉 全部完成！请检查文件夹: {OUTPUT_DIR}")
+    print(f"\n🎉 fullpartcompleted！pleasecheckfileclamp: {OUTPUT_DIR}")
